@@ -1,5 +1,5 @@
 #include "Triangle.h"
-
+#include "Material.h"
 #include "Ray.h"
 #include <glm/geometric.hpp>
 
@@ -66,7 +66,7 @@ namespace Pooraytracer {
 		return true;
 	}
 
-	Mesh::Mesh(const std::string& name, const std::vector<std::shared_ptr<Hittable>>& triangles) :name(name)
+	Mesh::Mesh(const std::string& name, const std::vector<std::shared_ptr<Hittable>>& triangles, shared_ptr<Material> material) :name(name), material(material)
 	{
 		for (const auto& primitive : triangles)
 		{

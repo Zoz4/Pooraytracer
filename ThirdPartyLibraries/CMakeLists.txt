@@ -18,6 +18,7 @@ target_compile_options(glm
 add_subdirectory(tinyobjloader)
 
 # tinyxml2
+set(tinyxml2_BUILD_TESTING OFF CACHE BOOL "Build tests for tinyxml2" FORCE)
 add_subdirectory(tinyxml2)
 
 # stb 
@@ -26,7 +27,7 @@ target_include_directories(stb INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/stb")
 
 # spdlog
 add_subdirectory(spdlog)
-## 设置 SPDLOG_ACTIVE_LEVEL 根据构建配置自动调整
+## 璁剧疆 SPDLOG_ACTIVE_LEVEL 鏍规嵁鏋勫缓閰嶇疆鑷姩璋冩暣
 target_compile_definitions(spdlog PUBLIC 
     $<$<CONFIG:DEBUG>:SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG>
     $<$<CONFIG:RELEASE>:SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_INFO>

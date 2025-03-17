@@ -1,6 +1,7 @@
 #pragma once
 #include <spdlog/fmt/fmt.h>
 #include <spdlog/spdlog.h>
+#include <glm/gtx/string_cast.hpp>
 
 #define RELATIVE_FILE(path) (path + sizeof(PROJECT_ROOT) - 1)
 #define LOGGER_FORMAT "[%^%l%$] %v"

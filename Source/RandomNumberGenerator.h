@@ -1,6 +1,8 @@
 #pragma once
 
 #include<cstdlib>
+#include <glm/vec3.hpp>
+#include <glm/geometric.hpp>
 
 namespace Pooraytracer {
 
@@ -15,6 +17,18 @@ namespace Pooraytracer {
 	inline int RandomInt(int min, int max) {
 		// Returns a random integer in [min,max].
 		return int(RandomFloat(min, max + 1));
+	}
+	
+	inline glm::vec3 RandomUnitVector3()
+	{
+		while (true)
+		{
+			glm::vec3 p = glm::vec3(RandomFloat(), RandomFloat(), RandomFloat());
+			float lensq = glm::dot(p, p);
+			if (1e-160 < lensq && lensq <= 1.f) {
+				return glm::normalize(p);
+			}
+		}
 	}
 
 }
