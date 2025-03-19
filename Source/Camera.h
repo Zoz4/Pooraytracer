@@ -13,7 +13,8 @@ namespace Pooraytracer {
 		int imageWidth = 100;
 		int imageHeight = 100;
 		int samplesPerPixel = 1;	// Count of random samples for each pixel
-		int maxDepth = 5.f;
+		int maxDepth = 10.f;
+		color background;
 
 		float fovy = 90.f;
 		vec3 eye = vec3(0.f, 0.f, 0.f);

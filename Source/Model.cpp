@@ -1,11 +1,10 @@
 #include "Model.h"
 #include "Logger.h"
-#include "Material.h"
+
 
 #define TINYOBJLOADER_IMPLEMENTATION
 #include <tiny_obj_loader.h>
-
-
+#include <tinyxml2.h>
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -14,9 +13,25 @@
 
 namespace Pooraytracer {
 
-	Model::Model(const std::string& modelPath)
+	const std::unordered_map<std::string, MaterialType> Model::materialTypeMap = {
+		{"material0", MaterialType::Lambertian },
+		{"material1", MaterialType::Lambertian },
+		{"material2", MaterialType::Lambertian },
+		{"material3", MaterialType::Lambertian },
+		{"material4", MaterialType::Lambertian },
+		{"light1", MaterialType::DiffuseLight},
+		{"light2", MaterialType::DiffuseLight},
+		{"light3", MaterialType::DiffuseLight},
+		{"light4", MaterialType::DiffuseLight},
+	};
+
+	Model::Model(const std::string& modelDirectory, const std::string& modelName) :modelDirectory(modelDirectory), modelName(modelName)
 	{
+
+		const std::string& modelPath = modelDirectory + "/" + modelName + ".obj";
 		ProcessObjFile(modelPath);
+
+		InitializeLightsRadiance();
 
 		tinyobj::ObjReaderConfig config;
 
@@ -38,13 +53,20 @@ namespace Pooraytracer {
 		// Loop over shapes
 		LOGI("Shapes/Meshes Nums: {}", shapes.size());
 		LOGI("Materials Nums: {}", materials.size());
-		std::string material_name;
 		for (size_t s = 0; s < shapes.size(); s++)
 		{
-			LOGI("Shapes/Meshes[{}] Name:{}, Faces Nums:{}",
+			// Each face in the group has a same material
+			auto material_idx = shapes[s].mesh.material_ids[0];
+			std::string material_name = materials[material_idx].name;
+			auto& materialRaw = materials[material_idx];
+
+			LOGI("Shapes/Meshes[{}] Name:{}, Faces Nums:{}, Material Name:{}",
 				s, shapes[s].name,
-				shapes[s].mesh.num_face_vertices.size()
+				shapes[s].mesh.num_face_vertices.size(),
+				material_name
 			);
+			std::shared_ptr<Material> material = CreateMaterial(materialRaw);
+
 			// Loop over faces(polygon)
 			size_t index_offset = 0;
 			std::vector<std::shared_ptr<Hittable>> meshTriangles;
@@ -85,24 +107,17 @@ namespace Pooraytracer {
 				index_offset += fv;
 
 				// per-face material
-				auto material_idx = shapes[s].mesh.material_ids[f];
-				material_name = materials[material_idx].name;
-				auto& materialRaw = materials[material_idx];
-				vec3 albedo = vec3(materialRaw.diffuse[0], materialRaw.diffuse[1], materialRaw.diffuse[2]);
+				//auto material_idx = shapes[s].mesh.material_ids[f];
+				//material_name = materials[material_idx].name;
+				//auto& materialRaw = materials[material_idx];
+				//vec3 albedo = vec3(materialRaw.diffuse[0], materialRaw.diffuse[1], materialRaw.diffuse[2]);
+				////LOGI("Material Name: {}", material_name);
+				//std::shared_ptr<Material> material = make_shared<Lambertian>(albedo);// [TODO]: Implentment Material Initialize
 
-				//LOGI("Material Name: {}", material_name);
-				std::shared_ptr<Material> material = make_shared<Lambertian>(albedo);// [TODO]: Implentment Material Initialize
 				std::shared_ptr<Triangle> triangle = make_shared<Triangle>(vertices, texCoords, material);
 				meshTriangles.push_back(triangle);
 
 			}// End of a face
-
-			auto material_idx = shapes[s].mesh.material_ids[0];
-			material_name = materials[material_idx].name;
-			auto& materialRaw = materials[material_idx];
-			vec3 albedo = vec3(materialRaw.diffuse[0], materialRaw.diffuse[1], materialRaw.diffuse[2]);
-
-			std::shared_ptr<Material> material = make_shared<Lambertian>(albedo);
 			meshes.push_back(make_shared<Mesh>(shapes[s].name, meshTriangles, material));
 		}// End of a Shape/Mesh
 
@@ -189,6 +204,64 @@ namespace Pooraytracer {
 		}
 		LOGI("Process Success!")
 			return true;
+	}
+
+	std::shared_ptr<Material> Model::CreateMaterial(const tinyobj::material_t& materialRaw) const
+	{
+		const std::string mtlname = materialRaw.name;
+
+		MaterialType type = MaterialType::Lambertian;
+		if (materialTypeMap.contains(mtlname)) {
+			type = materialTypeMap.at(mtlname);
+		}
+
+		switch (type)
+		{
+		case MaterialType::PhoneReflectance: {
+			break;
+		}
+		case MaterialType::DiffuseLight: {
+			color radiance = lightRadianceMap.at(mtlname);
+			return make_shared<DiffuseLight>(radiance);
+			break;
+		}
+
+		case MaterialType::Lambertian:
+		default: {
+			vec3 albedo = vec3(materialRaw.diffuse[0], materialRaw.diffuse[1], materialRaw.diffuse[2]);
+			return make_shared<Lambertian>(albedo);
+		}
+
+		}
+	}
+
+	void Model::InitializeLightsRadiance()
+	{
+		const std::string xmlFilePath = modelDirectory + "/" + modelName + ".xml";
+		tinyxml2::XMLDocument doc;
+
+		if (doc.LoadFile(xmlFilePath.c_str()) != tinyxml2::XML_SUCCESS) {
+			LOGI("Failed to load XML file: {}", xmlFilePath);
+		}
+		auto ParseRadianceStr = [](const std::string& radianceStr)->color {
+			float x = 0.f, y = 0.f, z = 0.f;
+			std::stringstream ss(radianceStr);
+			char comma;
+			ss >> x >> comma >> y >> comma >> z;
+			return color(x, y, z);
+			};
+
+		for (tinyxml2::XMLElement* lightElement = doc.FirstChildElement("light"); lightElement != nullptr; lightElement = lightElement->NextSiblingElement("light")) {
+			const char* mtlname = lightElement->Attribute("mtlname");
+			const char* radianceStr = lightElement->Attribute("radiance");
+			if (mtlname && radianceStr) {
+				lightRadianceMap[mtlname] = ParseRadianceStr(radianceStr);
+				LOGI("Light: {} radiance: {}", mtlname, glm::to_string(lightRadianceMap[mtlname]));
+			} else {
+				LOGI("Something Wrong!");
+			}
+		}
+
 	}
 
 }

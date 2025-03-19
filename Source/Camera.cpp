@@ -8,6 +8,7 @@
 #include "Ray.h"
 #include "Logger.h"
 #include "Material.h"
+
 #include <thread>
 #include <mutex>
 
@@ -117,19 +118,27 @@ namespace Pooraytracer {
 			return color(0.f, 0.f, 0.f);
 		}
 		HitRecord record;
-		if (world.Hit(ray, Interval(0.001, std::numeric_limits<float>::infinity()), record))
+		if (!world.Hit(ray, Interval(0.001, std::numeric_limits<float>::infinity()), record))
 		{
-			Ray scatteredRay;
-			color attenuation;
-			if (record.material->Scatter(ray, record, attenuation, scatteredRay)) {
-				return attenuation * RayColor(scatteredRay, depth - 1, world);
-			}
-			return color(0.f, 0.f, 0.f);
+			return background;
 		}
-		vec3 unitDirection = glm::normalize(ray.direction);
-		float a = 0.5 * (unitDirection.y + 1.0f);
 
-		return (1.0f-a) * color(1.0f, 1.0f, 1.0f) + a*color(0.5f, 0.7f, 1.0f);
+		
+		Ray scatteredRay;
+		// attenuation =  fr * cosθ / pdf(wi)
+		color attenuation;
+
+		color emission = record.material->Emmited(record.uv[0], record.uv[1], record.position);
+
+		if (!record.material->Scatter(ray, record, attenuation, scatteredRay))
+		{
+			return emission;
+		}
+
+		color scatter = attenuation * RayColor(scatteredRay, depth - 1, world);
+
+		return emission + scatter;
+
 	}
 
 	color Camera::LinearToGamma(color linearColor)
@@ -144,8 +153,18 @@ namespace Pooraytracer {
 		for (size_t j = 0; j < imageHeight; ++j) {
 			for (size_t i = 0; i < imageWidth; ++i) {
 				size_t idx = i + j * imageWidth;
-				color gammaColor = LinearToGamma(colorAttachment[idx]);
-				static const Interval intensity(0.000f, 0.999f);
+
+				color linearColor = colorAttachment[idx];
+				auto &r = linearColor.x;
+				auto &g = linearColor.y;
+				auto &b = linearColor.z;
+
+				if (r != r) r = 0.0f;
+				if (g != g) g = 0.0f;
+				if (b != b) b = 0.0f;
+
+				color gammaColor = LinearToGamma(linearColor);
+				static const Interval intensity(0.0000f, 0.9999f);
 				rawImage[idx * 3] = (uint8_t)(intensity.Clamp(gammaColor.r) * 256);
 				rawImage[idx * 3 + 1] = (uint8_t)(intensity.Clamp(gammaColor.g) * 256);
 				rawImage[idx * 3 + 2] = (uint8_t)(intensity.Clamp(gammaColor.b) * 256);

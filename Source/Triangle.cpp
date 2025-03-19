@@ -16,6 +16,15 @@ namespace Pooraytracer {
 		vec3 n = cross(edges[0], edges[1]);
 
 		normal = normalize(n);
+
+		vec2 deltaUV0 = texCoords[1] - texCoords[0];
+		vec2 deltaUV1 = texCoords[2] - texCoords[0];
+		float f = 1.0f / (deltaUV0.x * deltaUV1.y - deltaUV1.x * deltaUV0.y);
+		tangent.x = f * (deltaUV1.y * edges[0].x - deltaUV0.y * edges[1].x);
+		tangent.y = f * (deltaUV1.y * edges[0].y - deltaUV0.y * edges[1].y);
+		tangent.z = f * (deltaUV1.y * edges[0].z - deltaUV0.y * edges[1].z);
+		tangent = glm::normalize(tangent);
+
 		area = length(n) * 0.5f;
 
 		D = dot(normal, vertices[0]);
@@ -47,6 +56,7 @@ namespace Pooraytracer {
 		record.position = p;
 		record.time = t;
 		record.material = material;
+		record.tangent = tangent;
 		record.SetFaceNormal(ray, normal);
 
 		return true;

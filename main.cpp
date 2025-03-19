@@ -16,7 +16,7 @@ int main(void)
 	const std::string fileName = "veach-mis";
 	LOGI("{}", fileName);
 	std::shared_ptr<Model> model = 
-		std::make_shared<Pooraytracer::Model>(RESOURCES_DIR+fileName+"/"+fileName+".obj");
+		std::make_shared<Pooraytracer::Model>(RESOURCES_DIR+fileName, fileName);
 
 	LOGI("Building BVH...");
 	HittableList world;
@@ -42,9 +42,20 @@ int main(void)
 	camera.lookAt = glm::vec3(0.0f, 2.8f, 0.0f);
 	camera.up = glm::vec3(0.0f, 1.0f, 0.0f);
 	camera.fovy = 20.1143f;
+	camera.background = color(0.0, 0.0, 0.0);
 	camera.imageWidth = 1280;
 	camera.imageHeight = 720;
-	camera.samplesPerPixel = 10;
+	camera.samplesPerPixel = 50;
+
+	// veach-mis for test
+	//camera.eye = glm::vec3(28.2792f, 5.2f, 1.23612e-06f);
+	//camera.lookAt = glm::vec3(0.0f, 2.8f, 0.0f);
+	//camera.up = glm::vec3(0.0f, 1.0f, 0.0f);
+	//camera.fovy = 20.1143f;
+	//camera.background = color(0.0, 0.0, 0.0);
+	//camera.imageWidth = 320;
+	//camera.imageHeight = 180;
+	//camera.samplesPerPixel = 1;
 
 	camera.Render(world);
 

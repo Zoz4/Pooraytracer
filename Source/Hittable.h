@@ -17,6 +17,7 @@ namespace Pooraytracer {
 		vec3 position;
 		float time;
 		vec3 normal; // in the same side with the ray
+		vec3 tangent;
 		vec2 uv;
 		std::shared_ptr<Material> material; // [TODO]
 		bool bFrontFace;

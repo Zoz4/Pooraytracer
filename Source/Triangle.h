@@ -19,6 +19,7 @@ namespace Pooraytracer {
 		std::array<vec3, 2> edges;	  // e0: v1-v0, e1: v2-v0 
 		std::array<vec2, 3> texCoords;// texture coords
 		vec3 normal;
+		vec3 tangent;
 		float area;
 		AABB bbox;
 		std::shared_ptr<Material> material; // [TODO]
