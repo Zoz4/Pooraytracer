@@ -5,9 +5,11 @@
 #include "Hittable.h"
 #include "Texture.h"
 #include "RandomNumberGenerator.h"
+#include "Logger.h"
 
 #include <glm/vec3.hpp>
 #include <glm/mat3x3.hpp>
+#include <glm/geometric.hpp>
 
 namespace Pooraytracer {
 
@@ -24,7 +26,7 @@ namespace Pooraytracer {
 
 	enum class MaterialType
 	{
-		Lambertian, PhoneReflectance, DiffuseLight
+		Lambertian, PhoneReflectance, DiffuseLight, DebugMaterial
 	};
 	class Material {
 	public:
@@ -43,16 +45,18 @@ namespace Pooraytracer {
 		};
 		virtual float PDF(const vec3& wi, const MaterialEvalContext& context) const {
 			return 1.0f;
-		};
+		}
+		virtual bool HasEmission() const { return false; }
+		virtual color GetEmission() const { return color(0.f, 0.f, 0.f); }
 
 	protected:
 		vec3 LocalToWorld(const vec3 &local, const MaterialEvalContext& context) const
 		{
-			const vec3& noraml = context.n;
+			const vec3& normal = context.n;
 			const vec3& tangent = context.dpdus;
-			vec3 bitangent = glm::cross(tangent, noraml);
+			vec3 bitangent = glm::cross(tangent, normal);
 
-			return glm::normalize(local.x * tangent + local.y * bitangent + local.z * noraml);
+			return glm::normalize(local.x * tangent + local.y * bitangent + local.z * normal );
 		}
 	};
 
@@ -86,7 +90,8 @@ namespace Pooraytracer {
 			vec3 wi = Sample(context);
 			scatteredRay = Ray(record.position, wi);
 			// attenuation = f_r * cos{θ_i} / pdf
-			attenuation = Eval(wi, context)*glm::dot(wi, context.n)/PDF(wi, context);
+			float cosTheta = glm::dot(wi, context.n);
+			attenuation = Eval(wi, context)*cosTheta/PDF(wi, context);
 
 			return true;
 		}
@@ -104,7 +109,24 @@ namespace Pooraytracer {
 		color Emmited(float u, float v, const point3& p) const override {
 			return texture->Value(u, v, p);
 		}
+		bool HasEmission() const override { return true; }
+		color GetEmission() const override { return Emmited(0.f, 0.f, point3( 0.f )); }
 	private:
 		shared_ptr<Texture> texture;
 	};
+
+	class DebugMaterial : public Material {
+	public:
+
+		DebugMaterial(shared_ptr<Texture> texture) :texture(texture) {}
+		DebugMaterial(const color& albedo) :texture(make_shared<SolidColor>(albedo)) {}
+		bool HasEmission() const override { return true; }
+		color GetEmission() const override { return Emmited(0.f, 0.f, point3(0.f)); }
+		color Emmited(float u, float v, const point3& p) const override {
+			return texture->Value(u, v, p);
+		}
+	private:
+		shared_ptr<Texture> texture;
+	};
+
 }

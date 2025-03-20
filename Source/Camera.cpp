@@ -8,6 +8,7 @@
 #include "Ray.h"
 #include "Logger.h"
 #include "Material.h"
+#include "RandomNumberGenerator.h"
 
 #include <thread>
 #include <mutex>
@@ -39,7 +40,7 @@ namespace Pooraytracer {
 		//}
 
 		int process = imageHeight;
-		const int thred = 20;
+		const int thred = 16;
 		int times = imageHeight / thred;
 		std::thread th[thred];
 		auto castRayMultiThread = [&](uint32_t yMin, uint32_t yMax) {
@@ -104,8 +105,9 @@ namespace Pooraytracer {
 
 	Ray Camera::GetRay(int i, int j) const
 	{
-		vec3 pixelSample = pixel00Location + (float)i * pixelDeltaU + (float)j * pixelDeltaV;
-
+		//vec2 offset = SampleSquare();
+		//vec3 pixelSample = pixel00Location + ((float)i+offset.x) * pixelDeltaU + ((float)j+offset.y) * pixelDeltaV;
+		vec3 pixelSample = pixel00Location + ((float)i) * pixelDeltaU + ((float)j) * pixelDeltaV;
 		vec3 origin = center;
 		vec3 direction = pixelSample - origin;
 
@@ -114,7 +116,7 @@ namespace Pooraytracer {
 
 	color Camera::RayColor(const Ray& ray, int depth, const Hittable& world)
 	{
-		if (depth <= 0) {
+		if (depth < 0) {
 			return color(0.f, 0.f, 0.f);
 		}
 		HitRecord record;
@@ -122,22 +124,20 @@ namespace Pooraytracer {
 		{
 			return background;
 		}
-
+		if (record.material->HasEmission())
+		{
+			return record.material->GetEmission();
+		}
 		
 		Ray scatteredRay;
-		// attenuation =  fr * cosθ / pdf(wi)
-		color attenuation;
-
-		color emission = record.material->Emmited(record.uv[0], record.uv[1], record.position);
-
-		if (!record.material->Scatter(ray, record, attenuation, scatteredRay))
+		color attenuation; // attenuation =  fr * cosθ / pdf(wi)
+		color scatter{0.f};
+		HitRecord scatteredRecord;
+		if (record.material->Scatter(ray, record, attenuation, scatteredRay))
 		{
-			return emission;
+			scatter = attenuation * RayColor(scatteredRay, depth - 1, world);
 		}
-
-		color scatter = attenuation * RayColor(scatteredRay, depth - 1, world);
-
-		return emission + scatter;
+		return scatter;
 
 	}
 

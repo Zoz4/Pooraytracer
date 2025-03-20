@@ -13,7 +13,7 @@ int main(void)
 
 	LOGI("Hello Pooraytracer!");
 
-	const std::string fileName = "veach-mis";
+	const std::string fileName = "cornell-box";
 	LOGI("{}", fileName);
 	std::shared_ptr<Model> model = 
 		std::make_shared<Pooraytracer::Model>(RESOURCES_DIR+fileName, fileName);
@@ -26,6 +26,7 @@ int main(void)
 	world = HittableList(make_shared<BVHNode>(world));
 	LOGI("Building BVH End...");
 
+	
 	Camera camera;
 
 	// cornell-box
@@ -33,29 +34,42 @@ int main(void)
 	//camera.lookAt = glm::vec3(278.0f, 273.0f, -799.0f);
 	//camera.up = glm::vec3(0.0f, 1.0f, 0.0f);
 	//camera.fovy = 39.3077f;
-	//camera.imageWidth = 100;
-	//camera.imageHeight = 100;
+	//camera.background = color(0.0, 0.0, 0.0);
+	//camera.imageWidth =  128;
+	//camera.imageHeight = 128 ;
 	//camera.samplesPerPixel = 10;
+
+	// cornell-box for debug
+	camera.eye = glm::vec3(278.0f, 273.0f, -800.0f);
+	camera.lookAt = glm::vec3(278.0f, 273.0f, -799.0f);
+	camera.up = glm::vec3(0.0f, 1.0f, 0.0f);
+	camera.fovy = 39.3077f;
+	camera.background = color(0.0, 0.0, 0.0);
+	camera.imageWidth = 1024;
+	camera.imageHeight = 1024;
+	camera.samplesPerPixel = 100;
+	camera.maxDepth = 5;
 	
 	// veach-mis
-	camera.eye = glm::vec3(28.2792f, 5.2f, 1.23612e-06f);
-	camera.lookAt = glm::vec3(0.0f, 2.8f, 0.0f);
-	camera.up = glm::vec3(0.0f, 1.0f, 0.0f);
-	camera.fovy = 20.1143f;
-	camera.background = color(0.0, 0.0, 0.0);
-	camera.imageWidth = 1280;
-	camera.imageHeight = 720;
-	camera.samplesPerPixel = 50;
-
-	// veach-mis for test
 	//camera.eye = glm::vec3(28.2792f, 5.2f, 1.23612e-06f);
 	//camera.lookAt = glm::vec3(0.0f, 2.8f, 0.0f);
 	//camera.up = glm::vec3(0.0f, 1.0f, 0.0f);
 	//camera.fovy = 20.1143f;
 	//camera.background = color(0.0, 0.0, 0.0);
-	//camera.imageWidth = 320;
-	//camera.imageHeight = 180;
-	//camera.samplesPerPixel = 1;
+	//camera.imageWidth = 1280;
+	//camera.imageHeight = 720;
+	//camera.samplesPerPixel = 50;
+
+	// veach-mis for debug
+	//camera.eye = glm::vec3(28.2792f, 5.2f, 1.23612e-06f);
+	//camera.lookAt = glm::vec3(0.0f, 2.8f, 0.0f);
+	//camera.up = glm::vec3(0.0f, 1.0f, 0.0f);
+	//camera.fovy = 20.1143f;
+	//camera.background = color(0.0, 0.0, 0.0);
+	//camera.imageWidth = 1280;
+	//camera.imageHeight = 720;
+	//camera.samplesPerPixel = 10;
+
 
 	camera.Render(world);
 

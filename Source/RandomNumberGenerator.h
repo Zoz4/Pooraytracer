@@ -62,6 +62,20 @@ namespace Pooraytracer {
 		float z = std::sqrt(std::max(0.0f, 1 - d.x * d.x - d.y * d.y));
 
 		return glm::vec3(d.x, d.y, z);
+
+		//auto r1 = RandomFloat();
+		//auto r2 = RandomFloat();
+
+		//auto phi = 2 * Pi * r1;
+		//auto x = std::cos(phi) * std::sqrt(r2);
+		//auto y = std::sin(phi) * std::sqrt(r2);
+		//auto z = std::sqrt(1 - r2);
+
+		//return glm::vec3(x, y, z);
 	}
 
+	inline glm::vec2 SampleSquare() {
+		// Returns the vector to a random point in the [-.5,-.5]-[+.5,+.5] unit square.
+		return glm::vec2(RandomFloat() - 0.5, RandomFloat() - 0.5);
+	}
 }

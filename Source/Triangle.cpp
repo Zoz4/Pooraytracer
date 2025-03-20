@@ -29,6 +29,7 @@ namespace Pooraytracer {
 
 		D = dot(normal, vertices[0]);
 		w = n / dot(n, n);
+		SetBoundingBox();
 
 	}
 	bool Triangle::Hit(const Ray& ray, Interval domain, HitRecord& record) const

@@ -17,7 +17,7 @@ namespace Pooraytracer {
 	{
 		x = (a.x <= b.x) ? Interval(a.x, b.x) : Interval(b.x, a.x);
 		y = (a.y <= b.y) ? Interval(a.y, b.y) : Interval(b.y, a.y);
-		y = (a.z <= b.z) ? Interval(a.z, b.z) : Interval(b.z, a.z);
+		z = (a.z <= b.z) ? Interval(a.z, b.z) : Interval(b.z, a.z);
 		PadToMinimus();
 	}
 

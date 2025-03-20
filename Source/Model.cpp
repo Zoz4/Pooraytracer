@@ -23,6 +23,14 @@ namespace Pooraytracer {
 		{"light2", MaterialType::DiffuseLight},
 		{"light3", MaterialType::DiffuseLight},
 		{"light4", MaterialType::DiffuseLight},
+
+		{"DiffuseWhite", MaterialType::Lambertian }, // Top, Back & Bottom
+		{"DiffuseBall", MaterialType::Lambertian },
+		{"DiffuseYellow", MaterialType::DebugMaterial }, // Not Used!
+		{"LeftWall", MaterialType::Lambertian },
+		{"RightWall", MaterialType::Lambertian },
+		{"Light", MaterialType::DiffuseLight }
+
 	};
 
 	Model::Model(const std::string& modelDirectory, const std::string& modelName) :modelDirectory(modelDirectory), modelName(modelName)
@@ -225,12 +233,16 @@ namespace Pooraytracer {
 			return make_shared<DiffuseLight>(radiance);
 			break;
 		}
+		case MaterialType::DebugMaterial: {
+			color albedo = vec3(materialRaw.diffuse[0], materialRaw.diffuse[1], materialRaw.diffuse[2]);
+			return make_shared<DebugMaterial>(albedo);
+			break;
+		}
 
 		case MaterialType::Lambertian:
-		default: {
+		default: 
 			vec3 albedo = vec3(materialRaw.diffuse[0], materialRaw.diffuse[1], materialRaw.diffuse[2]);
 			return make_shared<Lambertian>(albedo);
-		}
 
 		}
 	}
