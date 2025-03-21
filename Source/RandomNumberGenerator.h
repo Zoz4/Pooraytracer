@@ -7,8 +7,9 @@
 
 namespace Pooraytracer {
 
-	const float InvPi = 0.31830988618379067154;
 	const float Pi = 3.14159265358979323846;
+	const float InvPi = 0.31830988618379067154;
+	const float Inv2Pi = 0.15915494309189533577;
 	const float PiOver2 = 1.57079632679489661923;
 	const float PiOver4 = 0.78539816339744830961;
 

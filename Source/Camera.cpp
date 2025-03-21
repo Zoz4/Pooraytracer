@@ -22,27 +22,28 @@ namespace Pooraytracer {
 
 		LOGI("Render Start...");
 
-		//for (int j = 0; j < imageHeight; ++j) {
-		//	LOGI("Scanlines remaining : {}", imageHeight - j);
-		//	for (int i = 0; i < imageWidth; ++i) {
-		//      Ray ray = GetRay(i, j);
-		//		color pixelColor(0.f, 0.f, 0.f);
-		//		for (int sample = 0; sample < samplesPerPixel; ++sample)
-		//		{
-		//			pixelColor += RayColor(ray, maxDepth, world);
-		//		}
-		//		size_t idx = i + j * imageWidth;
-		//		pixelColor *= pixelSamplesScale;
-		//		colorAttachment[idx * 3] = pixelColor.x * 255;
-		//		colorAttachment[idx * 3 + 1] = pixelColor.y * 255;
-		//		colorAttachment[idx * 3 + 2] = pixelColor.z * 255;
-		//	}
-		//}
+		/*
+		for (int j = 0; j < imageHeight; ++j) {
+			LOGI("Scanlines remaining : {}", imageHeight - j);
+			for (int i = 0; i < imageWidth; ++i) {
+		      Ray ray = GetRay(i, j);
+				color pixelColor(0.f, 0.f, 0.f);
+				for (int sample = 0; sample < samplesPerPixel; ++sample)
+				{
+					pixelColor += RayColor(ray, maxDepth, world);
+				}
+				size_t idx = i + j * imageWidth;
+				pixelColor *= pixelSamplesScale;
+				colorAttachment[idx * 3] = pixelColor.x * 255;
+				colorAttachment[idx * 3 + 1] = pixelColor.y * 255;
+				colorAttachment[idx * 3 + 2] = pixelColor.z * 255;
+			}
+		}
+		*/
 
 		int process = imageHeight;
-		const int thred = 16;
-		int times = imageHeight / thred;
-		std::thread th[thred];
+		int times = imageHeight / threadNums;
+		std::vector<std::thread> threads(threadNums);
 		auto castRayMultiThread = [&](uint32_t yMin, uint32_t yMax) {
 			for (uint32_t j = yMin; j < yMax; j++) {
 				int m = j * imageWidth;
@@ -61,22 +62,22 @@ namespace Pooraytracer {
 				mtx.unlock();
 			}
 		};
-		for (int i = 0; i < thred; i++) {
-			th[i] = std::thread(castRayMultiThread, i * times, (i + 1) * times);
+		for (int i = 0; i < threadNums; i++) {
+			threads[i] = std::thread(castRayMultiThread, i * times, (i + 1) * times);
 		}
-		for (int i = 0; i < thred; i++) {
-			th[i].join();
+		for (auto& th : threads) {
+			th.join();
 		}
 		LOGI("Render End...");
-		WriteColor(imageWidth, imageHeight, colorAttachment, std::string(PROJECT_ROOT"Results/output.png") );
 	}
+
 	void Camera::Initialize()
 	{
 		imageWidth = (imageWidth < 1) ? 1 : imageWidth;
 		imageHeight = (imageHeight < 1) ? 1 : imageHeight;
 		aspectRatio = float(imageWidth) / float(imageHeight);
 
-		colorAttachment.resize(imageWidth * imageHeight,color(0.f,0.f,0.f));
+		colorAttachment.resize(imageWidth * imageHeight, color(0.f,0.f,0.f));
 
 		pixelSamplesScale = 1.0 / samplesPerPixel;
 
@@ -141,13 +142,13 @@ namespace Pooraytracer {
 
 	}
 
-	color Camera::LinearToGamma(color linearColor)
+	color Camera::LinearToGamma(color linearColor) const
 	{
 		color grammaColor = glm::sqrt(linearColor);
 		return grammaColor;
 	}
 
-	void Camera::WriteColor(int imageWidth, int imageHeight, const std::vector<color>& colorAttachment, const std::string& outputPath)
+	void Camera::WriteColorAttachment(const std::string& outputPath) const
 	{
 		std::vector<uint8_t> rawImage(imageHeight * imageWidth * 3);
 		for (size_t j = 0; j < imageHeight; ++j) {
@@ -175,6 +176,6 @@ namespace Pooraytracer {
 
 	void ShowProgress(int progress)
 	{
-		LOGI("Left lines: {}", progress);
+		LOGI("Scanlines remaining : {}", progress);
 	}
 }

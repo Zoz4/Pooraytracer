@@ -14,11 +14,11 @@
 namespace Pooraytracer {
 
 	const std::unordered_map<std::string, MaterialType> Model::materialTypeMap = {
-		{"material0", MaterialType::Lambertian },
-		{"material1", MaterialType::Lambertian },
-		{"material2", MaterialType::Lambertian },
-		{"material3", MaterialType::Lambertian },
-		{"material4", MaterialType::Lambertian },
+		{"material0", MaterialType::PhoneReflectance },
+		{"material1", MaterialType::PhoneReflectance },
+		{"material2", MaterialType::PhoneReflectance },
+		{"material3", MaterialType::PhoneReflectance },
+		{"material4", MaterialType::PhoneReflectance },
 		{"light1", MaterialType::DiffuseLight},
 		{"light2", MaterialType::DiffuseLight},
 		{"light3", MaterialType::DiffuseLight},
@@ -26,7 +26,7 @@ namespace Pooraytracer {
 
 		{"DiffuseWhite", MaterialType::Lambertian }, // Top, Back & Bottom
 		{"DiffuseBall", MaterialType::Lambertian },
-		{"DiffuseYellow", MaterialType::DebugMaterial }, // Not Used!
+		{"DiffuseYellow", MaterialType::Lambertian }, // Not Used!
 		{"LeftWall", MaterialType::Lambertian },
 		{"RightWall", MaterialType::Lambertian },
 		{"Light", MaterialType::DiffuseLight }
@@ -104,13 +104,19 @@ namespace Pooraytracer {
 					//    nz = attrib.normals[3 * size_t(idx.normal_index) + 2];
 					//}
 
-					tinyobj::real_t tx, ty;
+					tinyobj::real_t tx{}, ty{};
 					// Check if `texcoord_index` is zero or positive. negative = no texcoord data
 					if (idx.texcoord_index >= 0) {
 						tx = attrib.texcoords[2 * size_t(idx.texcoord_index) + 0];
 						ty = attrib.texcoords[2 * size_t(idx.texcoord_index) + 1];
 					}
 					texCoords[v] = { tx, ty };
+				}
+				if (texCoords[0] == texCoords[1] || texCoords[1] == texCoords[2] || texCoords[0] == texCoords[2])
+				{
+					LOGW("The texture coordinates of the triangle's vertices are the same");
+					LOGW("So we set them to a fixed value to ensure the correct calculation of the tangent.")
+					texCoords[0] = { 0, 0 }; texCoords[1] = { 1, 0 }; texCoords[2] = { 1, 1 };
 				}
 				index_offset += fv;
 
@@ -226,6 +232,10 @@ namespace Pooraytracer {
 		switch (type)
 		{
 		case MaterialType::PhoneReflectance: {
+			color Kd = vec3(materialRaw.diffuse[0], materialRaw.diffuse[1], materialRaw.diffuse[2]);
+			color Ks = vec3(materialRaw.specular[0], materialRaw.specular[1], materialRaw.specular[2]);
+			float Ns = materialRaw.shininess;
+			return make_shared<PhoneReflectance>(Kd, Ks, Ns);
 			break;
 		}
 		case MaterialType::DiffuseLight: {
@@ -233,17 +243,16 @@ namespace Pooraytracer {
 			return make_shared<DiffuseLight>(radiance);
 			break;
 		}
-		case MaterialType::DebugMaterial: {
+		case MaterialType::Lambertian: {
+			vec3 albedo = vec3(materialRaw.diffuse[0], materialRaw.diffuse[1], materialRaw.diffuse[2]);
+			return make_shared<Lambertian>(albedo);
+			break;
+		}
+		case MaterialType::DebugMaterial:
+		default: 
 			color albedo = vec3(materialRaw.diffuse[0], materialRaw.diffuse[1], materialRaw.diffuse[2]);
 			return make_shared<DebugMaterial>(albedo);
 			break;
-		}
-
-		case MaterialType::Lambertian:
-		default: 
-			vec3 albedo = vec3(materialRaw.diffuse[0], materialRaw.diffuse[1], materialRaw.diffuse[2]);
-			return make_shared<Lambertian>(albedo);
-
 		}
 	}
 

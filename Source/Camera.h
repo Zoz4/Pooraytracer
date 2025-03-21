@@ -13,6 +13,7 @@ namespace Pooraytracer {
 		int imageWidth = 100;
 		int imageHeight = 100;
 		int samplesPerPixel = 1;	// Count of random samples for each pixel
+		int threadNums = 16;
 		int maxDepth = 10.f;
 		color background;
 
@@ -24,6 +25,7 @@ namespace Pooraytracer {
 		std::vector <color> colorAttachment;
 		void Render(Hittable& world);
 
+		void WriteColorAttachment(const std::string& outputPath) const;
 	private:
 		float aspectRatio;			// Ratio of image width over height
 		float pixelSamplesScale;	// 1.0/samplesPerPixel
@@ -37,8 +39,7 @@ namespace Pooraytracer {
 		Ray GetRay(int i, int j) const;
 		color RayColor(const Ray& ray, int depth, const Hittable& world);
 		
-		color LinearToGamma(color linearColor);
-		void WriteColor(int imageWidth, int imageHeight, const std::vector<color>& colorAttachment, const std::string& outputPath);
+		color LinearToGamma(color linearColor) const;
 	};
 
 	void ShowProgress(int progress);
