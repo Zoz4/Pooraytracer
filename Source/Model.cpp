@@ -114,8 +114,8 @@ namespace Pooraytracer {
 				}
 				if (texCoords[0] == texCoords[1] || texCoords[1] == texCoords[2] || texCoords[0] == texCoords[2])
 				{
-					LOGW("The texture coordinates of the triangle's vertices are the same");
-					LOGW("So we set them to a fixed value to ensure the correct calculation of the tangent.")
+					//LOGW("The texture coordinates of the triangle's vertices are the same");
+					//LOGW("So we set them to a fixed value to ensure the correct calculation of the tangent.")
 					texCoords[0] = { 0, 0 }; texCoords[1] = { 1, 0 }; texCoords[2] = { 1, 1 };
 				}
 				index_offset += fv;

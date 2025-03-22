@@ -12,16 +12,34 @@
 #include <glm/geometric.hpp>
 
 namespace Pooraytracer {
-
 	using glm::vec3;
 	using color = glm::vec3;
 	using point3 = glm::vec3;
 
-	class MaterialEvalContext {
+	struct MaterialEvalContext {
 	public:
-		vec3 wo;	// point->eye: world space
-		vec3 n;		// normal
-		vec3 dpdus; // tangent
+		vec3 p;     // intersection point
+		vec2 uv;    // texcoords of hit point
+
+		vec3 wo;	// point->eye: local space
+		vec3 n;		// world space normal
+		vec3 dpdus; // world space tangent
+	};
+
+	enum class SampleFlags : unsigned int
+	{
+		Unset = 0,
+		Diffuse = 1 << 0,
+		Specular = 1 << 1
+	};
+
+	struct MaterialSampleContext {
+	public:
+		vec3 wi;		// local space wi
+		vec3 f;			// brdf
+		float pdf;
+		color radiance; // for light sampler
+		SampleFlags flags;
 	};
 
 	enum class MaterialType
@@ -38,8 +56,8 @@ namespace Pooraytracer {
 		virtual bool Scatter(const Ray& rayIn, const HitRecord& record, color& attenuation, Ray& scatteredRay) const {
 			return false;
 		}
-		virtual vec3 Sample(const MaterialEvalContext& context) const {
-			return vec3(0.f, 0.f, 0.f);
+		virtual MaterialSampleContext Sample(const MaterialEvalContext& context) const {
+			return MaterialSampleContext{};
 		};
 		virtual vec3 Eval(const vec3& wi, const MaterialEvalContext& context) const {
 			return vec3(0.f, 0.f, 0.f);
@@ -59,6 +77,18 @@ namespace Pooraytracer {
 
 			return glm::normalize(local.x * tangent + local.y * bitangent + local.z * normal );
 		}
+		vec3 WorldToLocal(const vec3& world, const HitRecord& record) const
+		{
+			const vec3& normal = record.normal;
+			const vec3& tangent = record.tangent;
+			vec3 bitangent = glm::cross(tangent, normal);
+
+			float x = glm::dot(world, tangent);
+			float y = glm::dot(world, bitangent);
+			float z = glm::dot(world, normal);
+
+			return vec3(x, y, z);
+		}
 	};
 
 	class Lambertian : public Material {
@@ -66,33 +96,42 @@ namespace Pooraytracer {
 		Lambertian(const color& albedo) :texture(make_shared<SolidColor>(albedo)) {}
 		Lambertian(shared_ptr<Texture> texture) :texture(texture) {}
 
-		vec3 Sample(const MaterialEvalContext& context) const override
+		MaterialSampleContext Sample(const MaterialEvalContext& context) const override
 		{
+			MaterialSampleContext sampleContext{};
+			// wi: local space, (sinθcosφ，sinθsinφ, cosθ)
 			vec3 wi = SampleCosineHemisphere();
-			return LocalToWorld(wi, context);
+			sampleContext.wi = wi;
+			sampleContext.pdf = PDF(wi, context);
+			sampleContext.f = Eval(wi, context);
+			return sampleContext;
 		}
 		float PDF(const vec3& wi, const MaterialEvalContext& context) const override
-		{
-			float cosTheta = glm::dot(wi, context.n);
+		{   
+			float cosTheta = wi.z;
 			return cosTheta * InvPi;
 		}
 		vec3 Eval(const vec3& wi, const MaterialEvalContext& context) const override {
-			return texture->Value(0,0,vec3(0)) * InvPi; // albedo / pi
+			return texture->Value(context.uv[0], context.uv[1], context.p) * InvPi; // albedo / pi
 		}
-
 		bool Scatter(const Ray& rayIn, const HitRecord& record, color& attenuation, Ray& scatteredRay)
 			const override {
 
 			MaterialEvalContext context;
+			context.p = record.position;
+			context.uv = record.uv;
 			context.n = record.normal;
-			context.wo = -rayIn.direction;
+			context.wo = WorldToLocal(-rayIn.direction, record);
 			context.dpdus = record.tangent;
+		
+			MaterialSampleContext sampleContext = Sample(context);
+			const vec3& wi = sampleContext.wi;
+			const float cosTheta = sampleContext.wi.z;
+			const vec3& fr = sampleContext.f;
+			const float& pdf = sampleContext.pdf;
 
-			vec3 wi = Sample(context);
-			scatteredRay = Ray(record.position, wi);
-			// attenuation = f_r * cos{θ_i} / pdf
-			float cosTheta = glm::dot(wi, context.n);
-			attenuation = Eval(wi, context)*cosTheta/PDF(wi, context);
+			scatteredRay = Ray(record.position, LocalToWorld(wi, context));
+			attenuation = fr*cosTheta/pdf; // attenuation = f_r * cos{θ_i} / pdf
 
 			return true;
 		}
@@ -128,95 +167,104 @@ namespace Pooraytracer {
 		PhoneReflectance(shared_ptr<Texture> mapKd, const color& Ks, float Ns) :
 			Kd(mapKd), Ks(make_shared<SolidColor>(Ks)), Ns(Ns), pkd(0.5), pks(0.5) { }
 
-		vec3 SampleDiffuse(const MaterialEvalContext& context) const
-		{
-			float u1 = RandomFloat(), u2 = RandomFloat();
-			float theta = glm::acos(glm::sqrt(u1));
-			float phi = 2.0f * Pi * u2;
-			float sinTheta = glm::sin(theta), cosTheta = glm::cos(theta),
-				  sinPhi = glm::sin(phi), cosPhi = glm::cos(phi);
+		MaterialSampleContext Sample(const MaterialEvalContext& context) const override {
+			MaterialSampleContext sampleContext{};
 
-			vec3 wi = vec3(sinTheta * cosPhi, sinTheta * sinPhi, cosTheta);
+			float u = RandomFloat();
+			if (u < pkd) 
+			{
+				// Sample Diffuse
+				vec3 wi = SampleCosineHemisphere();
+				sampleContext.wi = wi;
+				sampleContext.pdf = DiffusePDF(wi, context);
+				// f_r_diffuse = kd / pi
+				sampleContext.f = Kd->Value(context.uv[0], context.uv[1], context.p) * InvPi;
+				sampleContext.flags = SampleFlags::Diffuse;
+			}
+			else if (pkd <= u && u < pkd + pks)
+			{
+				// Sample Specular
+				float u1 = RandomFloat(), u2 = RandomFloat();
+				float alpha = glm::acos(glm::pow(u1, 1.0 / (Ns + 1.0)));
+				float phi = 2.0f * Pi * u2;
+				float sinAlpha = glm::sin(alpha), cosAlpha = glm::cos(alpha),
+					sinPhi = glm::sin(phi), cosPhi = glm::cos(phi);
+				vec3 reflectWi = vec3(sinAlpha * cosPhi, sinAlpha * sinPhi, cosAlpha);
 
-			return LocalToWorld(wi, context);
+				sampleContext.wi = ReflectiveSpaceToLocal(reflectWi, context);
+				sampleContext.pdf = SpecularPDF(sampleContext.wi, context);
+				vec3 localReflect = glm::normalize( Reflect(context.wo, vec3(0, 0, 1)) );
+				float localCosAlpha = glm::dot(sampleContext.wi, localReflect);
+				// f_r_specular = ks*(Ns+2)/(2*Pi)*(cosα)^n
+				sampleContext.f = Ks->Value(context.uv[0], context.uv[1], context.p) * (Ns + 2) * Inv2Pi * glm::pow(localCosAlpha, Ns);
+				sampleContext.flags = SampleFlags::Specular;
+			}
+
+			return sampleContext;
 		}
 		float DiffusePDF(const vec3& wi, const MaterialEvalContext& context) const
-		{
-			float cosTheta = glm::dot(wi, context.n);
+		{  
+			// wi : local space.
+			float cosTheta = wi.z;
 			return cosTheta * InvPi;
-		}
-		
-		vec3 SampleSpecular(const MaterialEvalContext& context) const
-		{
-			float u1 = RandomFloat(), u2 = RandomFloat();
-			float alpha = glm::acos(glm::pow(u1, 1.0/(Ns+1.0)));
-			float phi = 2.0f * Pi * u2;
-			float sinAlpha = glm::sin(alpha), cosAlpha = glm::cos(alpha),
-				sinPhi = glm::sin(phi), cosPhi = glm::cos(phi);
-
-			vec3 wi = vec3(sinAlpha * cosPhi, sinAlpha * sinPhi, cosAlpha);
-
-			return ReflectiveDirectionLocalToWorld(wi, context);
-		}
-		vec3 ReflectiveDirectionLocalToWorld(const vec3& local, const MaterialEvalContext& context) const
-		{
-			// Build Orthonormal Basis R(reflection)->N
-			vec3 R = glm::normalize(Reflect(context.wo, context.n));
-			vec3 V = (std::fabs(R.x) > 0.9f ? vec3(0, 1, 0) : vec3(1, 0, 0));
-
-			vec3 T = glm::normalize(glm::cross(V, R));
-			vec3 B = glm::cross(R, T);
-
-			return local.x * T + local.y * B + local.z * R;
 		}
 		float SpecularPDF(const vec3& wi, const MaterialEvalContext& context) const
 		{
-			vec3 R = glm::normalize(Reflect(context.wo, context.n));
-			float cosAlpha = glm::dot(wi, R);
+			vec3 localReflect = glm::normalize( Reflect(context.wo, vec3(0, 0, 1)) );
+			float cosAlpha = glm::dot(wi, localReflect);
 			return (Ns+1.0) * Inv2Pi * glm::pow(cosAlpha, Ns);
 		}
-
 		bool Scatter(const Ray& rayIn, const HitRecord& record, color& attenuation, Ray& scatteredRay)
 			const override {
 
-			MaterialEvalContext context;
+			MaterialEvalContext context{};
+			context.p = record.position;
+			context.uv = record.uv;
 			context.n = record.normal;
-			context.wo = -rayIn.direction;
+			context.wo = WorldToLocal(-rayIn.direction, record);
 			context.dpdus = record.tangent;
 
-			float u = RandomFloat();
+			MaterialSampleContext sampleContext = Sample(context);
+			const vec3& wi = sampleContext.wi;
+			float cosTheta = wi.z;
+			const vec3& fr = sampleContext.f;
+			const float& pdf = sampleContext.pdf;
 
-			// attenuation = f_r * cos{θ_i} / pdf
+			scatteredRay = Ray(record.position, LocalToWorld(wi, context));
+			attenuation = fr * cosTheta / pdf;
 
-			if (u < pkd) // Sample Diffuse
-			{
-				vec3 wi = SampleDiffuse(context);
-				scatteredRay = Ray(record.position, wi);
-				// f_r_diffuse = kd/pi
-				float cosTheta = glm::dot(wi, context.n);
-				attenuation = Kd->Value(record.uv[0], record.uv[1], record.position)*InvPi * cosTheta / DiffusePDF(wi, context);
-			}
-			else if (pkd <= u && u < pkd + pks) // Sample Specular
-			{
-				vec3 wi = SampleSpecular(context);
-				scatteredRay = Ray(record.position, wi);
-				// f_r_specular = ks*(Ns+2)/(2*Pi)*(cosα)^n * cos{θ_i}
-				vec3 reflect = glm::normalize(Reflect(context.wo, context.n));
-				float cosTheta = glm::dot(wi, context.n);
-				float cosAlpha = glm::dot(wi, reflect);
-				attenuation = Ks->Value(record.uv[0], record.uv[1], record.position) * (Ns + 2) * Inv2Pi * glm::pow(cosAlpha, Ns) * cosTheta / SpecularPDF(wi, context);
-			}
-			else {
-				return false;
-			}
-			
 			return true;
 		}
 
 		vec3 Reflect(const vec3 &wo, const vec3 &n) const {
 			return -wo + 2 * dot(wo, n) * n;
 		}
+		vec3 LocalToReflectiveSpace(const vec3& local, const MaterialEvalContext& context) const
+		{
+			// Local Space to Reflective Space
+			vec3 localR = glm::normalize(Reflect(context.wo, vec3(0, 0, 1)));
+			vec3 V = (std::fabs(localR.x) > 0.9f ? vec3(0, 1, 0) : vec3(1, 0, 0));
 
+			vec3 T = glm::normalize(glm::cross(V, localR));
+			vec3 B = glm::cross(localR, T);
+
+			float x = glm::dot(local, T);
+			float y = glm::dot(local, B);
+			float z = glm::dot(local, localR);
+
+			return vec3(x, y, z);
+		}
+		vec3 ReflectiveSpaceToLocal(const vec3& reflect, const MaterialEvalContext& context) const
+		{
+			// Local Space to Reflective Space
+			vec3 localR = glm::normalize(Reflect(context.wo, vec3(0, 0, 1)));
+			vec3 V = (std::fabs(localR.x) > 0.9f ? vec3(0, 1, 0) : vec3(1, 0, 0));
+
+			vec3 T = glm::normalize(glm::cross(V, localR));
+			vec3 B = glm::cross(localR, T);
+
+			return reflect.x * T + reflect.y * B + reflect.z * localR;
+		}
 	private:
 		shared_ptr<Texture> Kd;
 		shared_ptr<Texture> Ks;
