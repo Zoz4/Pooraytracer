@@ -24,7 +24,7 @@ namespace Pooraytracer {
 		vec3 up = vec3(0., 1., 0.);
 
 		std::vector <color> colorAttachment;
-		void Render(Hittable& world);
+		void Render(Hittable& world, Hittable& lights);
 		void WriteColorAttachment(const std::string& outputPath) const;
 		std::string GetParametersStr() const;
 
@@ -39,7 +39,7 @@ namespace Pooraytracer {
 
 		void Initialize();
 		Ray GetRay(int i, int j) const;
-		color RayColor(const Ray& ray, int depth, const Hittable& world);
+		color RayColor(const Ray& ray, int depth, const Hittable& world, const Hittable& lights);
 
 		color LinearToGamma(color linearColor) const;
 	};

@@ -17,7 +17,7 @@ namespace Pooraytracer {
 
 	static std::mutex mtx;
 
-	void Camera::Render(Hittable& world)
+	void Camera::Render(Hittable& world, Hittable& lights)
 	{
 		Initialize();
 
@@ -52,7 +52,7 @@ namespace Pooraytracer {
 					Ray ray = GetRay(i, j);
 					for (int sample = 0; sample < samplesPerPixel; ++sample)
 					{
-						colorAttachment[m] += RayColor(ray, maxDepth, world);
+						colorAttachment[m] += RayColor(ray, maxDepth, world, lights);
 					}
 					colorAttachment[m] *= pixelSamplesScale;
 					++m;
@@ -116,7 +116,7 @@ namespace Pooraytracer {
 		return Ray(origin, direction);
 	}
 
-	color Camera::RayColor(const Ray& ray, int depth, const Hittable& world)
+	color Camera::RayColor(const Ray& ray, int depth, const Hittable& world, const Hittable& lights)
 	{
 		if (depth < 0.) {
 			return color(0., 0., 0.);
@@ -130,17 +130,54 @@ namespace Pooraytracer {
 		{
 			return record.material->GetEmission();
 		}
+		const point3& ps = record.position; // shade point
+
+		double pdfLights;
+		HitRecord lightsSamplePointRecord;
+		lights.Sample(ps, lightsSamplePointRecord, pdfLights); // sample lights from shade point
+		const point3& pl = lightsSamplePointRecord.position; // light sample point
+		vec3 lightDirection = glm::normalize(pl - ps);
+		vec3 lightNormal = lightsSamplePointRecord.normal;
+		std::shared_ptr<Material> lightMaterial = lightsSamplePointRecord.material;
+
+		HitRecord lightRayHitRecord;
+		double distance = glm::length(pl - ps);
+		Ray shadePoint2LightRay(ps, lightDirection);
+		world.Hit(shadePoint2LightRay, Interval(0.001, std::numeric_limits<double>::infinity()), lightRayHitRecord);
+
+		color direct{ 0. }, scatter{ 0. };
+
+		const point3& pNearest = lightRayHitRecord.position;
+		if (lightsSamplePointRecord.bFrontFace && // light area is front to shade point
+			distance - glm::length(ps - pNearest) < 0.001) { // shade point is visible to light
+
+			color emission = lightMaterial->GetEmission();
+			//LOGI("emmision: {}", glm::to_string(emission).c_str());
+			MaterialEvalContext context;
+			context.p = record.position;
+			context.uv = record.uv;
+			context.n = record.normal;
+			context.wo = Material::WorldToLocal(-ray.direction, record);
+			context.dpdus = record.tangent;
+
+			// Transform all vector to shade point's local space.
+			const vec3& localWi = Material::WorldToLocal(lightDirection, record);
+			const vec3& localLightNormal = Material::WorldToLocal(lightNormal, record);
+			vec3 fr = record.material->Eval(localWi, context);
+			double cosTheta = localWi.z; // θ: the angle of light direction and face normal
+			double cosThetaBar = glm::dot(localLightNormal, -localWi);  // θ': the angle of light area normal and light direcction
+
+			direct = emission * fr * cosTheta * cosThetaBar / (distance * distance) / pdfLights;
+		}
 
 		Ray scatteredRay;
-		color attenuation; // attenuation =  fr * cosθ / pdf(wi)
-		color scatter{ 0. };
+		color attenuation; // attenuation =  fr * cosθ / pdf(wi) : Indirect illumination
 		HitRecord scatteredRecord;
 		if (record.material->Scatter(ray, record, attenuation, scatteredRay))
 		{
-			scatter = attenuation * RayColor(scatteredRay, depth - 1, world);
+			scatter = attenuation * RayColor(scatteredRay, depth - 1, world, lights);
 		}
-		return scatter;
-
+		return direct + scatter;
 	}
 
 	color Camera::LinearToGamma(color linearColor) const
@@ -178,7 +215,7 @@ namespace Pooraytracer {
 	std::string Camera::GetParametersStr() const
 	{
 		std::stringstream ss;
-		ss << "spp" << samplesPerPixel << "-depth"<<maxDepth;
+		ss << "spp" << samplesPerPixel << "-depth" << maxDepth;
 		return ss.str();
 	}
 

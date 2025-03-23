@@ -68,8 +68,8 @@ namespace Pooraytracer {
 		virtual bool HasEmission() const { return false; }
 		virtual color GetEmission() const { return color(0., 0., 0.); }
 
-	protected:
-		vec3 LocalToWorld(const vec3& local, const MaterialEvalContext& context) const
+	public:
+		static vec3 LocalToWorld(const vec3& local, const MaterialEvalContext& context)
 		{
 			const vec3& normal = context.n;
 			const vec3& tangent = context.dpdus;
@@ -77,7 +77,7 @@ namespace Pooraytracer {
 
 			return glm::normalize(local.x * tangent + local.y * bitangent + local.z * normal);
 		}
-		vec3 WorldToLocal(const vec3& world, const HitRecord& record) const
+		static vec3 WorldToLocal(const vec3& world, const HitRecord& record)
 		{
 			const vec3& normal = record.normal;
 			const vec3& tangent = record.tangent;
@@ -202,6 +202,18 @@ namespace Pooraytracer {
 			}
 
 			return sampleContext;
+		}
+		vec3 Eval(const vec3& wi, const MaterialEvalContext& context) const override {
+			double u = RandomDouble();
+			if (u < pkd) {
+				return Kd->Value(context.uv[0], context.uv[1], context.p) * InvPi;
+			}
+			else if (pkd <= u && u < pkd + pks) {
+				vec3 localReflect = glm::normalize(Reflect(context.wo, vec3(0., 0., 1.)));
+				double localCosAlpha = glm::dot(wi, localReflect);
+				return Ks->Value(context.uv[0], context.uv[1], context.p) * (Ns + 2.) * Inv2Pi * glm::pow(localCosAlpha, Ns);
+			}
+			return vec3(0.);
 		}
 		double DiffusePDF(const vec3& wi, const MaterialEvalContext& context) const
 		{

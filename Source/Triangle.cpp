@@ -2,6 +2,7 @@
 #include "Material.h"
 #include "Ray.h"
 #include <glm/geometric.hpp>
+#include <glm/gtx/norm.hpp>
 
 namespace Pooraytracer {
 
@@ -61,6 +62,16 @@ namespace Pooraytracer {
 		record.SetFaceNormal(ray, normal);
 
 		return true;
+	}
+	void Triangle::Sample(const point3& origin, HitRecord& samplePointRecord, double& pdf) const
+	{
+		double x = std::sqrt(RandomDouble()), y = RandomDouble();
+		point3 p = vertices[0] * (1.0 - x) + vertices[1] * (x * (1.0 - y)) + vertices[2] * (x * y);
+		samplePointRecord.position = p;
+		vec3 direction = p - origin;
+		samplePointRecord.SetFaceNormal(Ray(origin, direction), normal);
+		samplePointRecord.material = material;
+		pdf = 1.0 / area;
 	}
 	void Triangle::SetBoundingBox()
 	{

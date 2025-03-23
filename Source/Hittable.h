@@ -9,6 +9,7 @@ namespace Pooraytracer {
 
 	using vec3 = glm::dvec3;
 	using vec2 = glm::dvec2;
+	using point3 = glm::dvec3;
 
 	class Ray;
 	class Material;
@@ -32,5 +33,9 @@ namespace Pooraytracer {
 		virtual ~Hittable() = default;
 		virtual bool Hit(const Ray& ray, Interval domain, HitRecord& record) const = 0;
 		virtual AABB BoundingBox() const = 0;
+		virtual void Sample(const point3& origin, HitRecord& samplePointRecord, double& pdf) const {}
+		virtual double GetArea() const {
+			return 0.0;
+		}
 	};
 }

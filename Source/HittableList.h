@@ -1,6 +1,6 @@
 #pragma once
 #include "Hittable.h"
-
+#include "RandomNumberGenerator.h"
 #include <memory>
 #include <vector>
 
@@ -19,6 +19,7 @@ namespace Pooraytracer {
 
 		void Add(shared_ptr<Hittable> object) {
 			objects.push_back(object);
+			area += object->GetArea();
 			bbox = AABB(bbox, object->BoundingBox());
 		}
 
@@ -37,7 +38,27 @@ namespace Pooraytracer {
 			return bHitAnything;
 		}
 		AABB BoundingBox() const override { return bbox; }
+		double GetArea() const override {
+			return area;
+		}
+		void Sample(const point3& origin, HitRecord& samplePointRecord, double& pdf) const override{
+			double areaSum = 0.0;
+			for (const auto& object : objects) {
+				areaSum += object->GetArea();
+			}
+			double p = RandomDouble() * areaSum;
+
+			areaSum = 0.0;
+			for (const auto& object : objects) {
+				areaSum += object->GetArea();
+				if (p <= areaSum) {
+					object->Sample(origin, samplePointRecord, pdf);
+					break;
+				}
+			}
+		}
 	public:
 		AABB bbox;
+		double area = 0.0;
 	};
 }
