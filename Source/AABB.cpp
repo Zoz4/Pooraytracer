@@ -42,10 +42,10 @@ namespace Pooraytracer {
 
 		for (int i = 0; i < 3; ++i) {
 			const Interval& axis = GetAxisInterval(i);
-			const float invDircetion = 1.0f / direction[i];
+			const double invDircetion = 1.0 / direction[i];
 
-			float t0 = (axis.min - origin[i]) * invDircetion;
-			float t1 = (axis.max - origin[i]) * invDircetion;
+			double t0 = (axis.min - origin[i]) * invDircetion;
+			double t1 = (axis.max - origin[i]) * invDircetion;
 
 			if (t0 < t1) {
 				if (t0 > t.min) t.min = t0;

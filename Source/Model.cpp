@@ -234,7 +234,7 @@ namespace Pooraytracer {
 		case MaterialType::PhoneReflectance: {
 			color Kd = vec3(materialRaw.diffuse[0], materialRaw.diffuse[1], materialRaw.diffuse[2]);
 			color Ks = vec3(materialRaw.specular[0], materialRaw.specular[1], materialRaw.specular[2]);
-			float Ns = materialRaw.shininess;
+			double Ns = materialRaw.shininess;
 			return make_shared<PhoneReflectance>(Kd, Ks, Ns);
 			break;
 		}
@@ -249,7 +249,7 @@ namespace Pooraytracer {
 			break;
 		}
 		case MaterialType::DebugMaterial:
-		default: 
+		default:
 			color albedo = vec3(materialRaw.diffuse[0], materialRaw.diffuse[1], materialRaw.diffuse[2]);
 			return make_shared<DebugMaterial>(albedo);
 			break;
@@ -265,7 +265,7 @@ namespace Pooraytracer {
 			LOGI("Failed to load XML file: {}", xmlFilePath);
 		}
 		auto ParseRadianceStr = [](const std::string& radianceStr)->color {
-			float x = 0.f, y = 0.f, z = 0.f;
+			double x = 0., y = 0., z = 0.;
 			std::stringstream ss(radianceStr);
 			char comma;
 			ss >> x >> comma >> y >> comma >> z;
@@ -278,7 +278,8 @@ namespace Pooraytracer {
 			if (mtlname && radianceStr) {
 				lightRadianceMap[mtlname] = ParseRadianceStr(radianceStr);
 				LOGI("Light: {} radiance: {}", mtlname, glm::to_string(lightRadianceMap[mtlname]));
-			} else {
+			}
+			else {
 				LOGI("Something Wrong!");
 			}
 		}

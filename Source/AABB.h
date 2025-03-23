@@ -6,7 +6,7 @@
 namespace Pooraytracer {
 
 	class Ray;
-	using glm::vec3;
+	using vec3 = glm::dvec3;
 
 	// Axis-Aligned Bounding Box
 	class AABB {

@@ -12,9 +12,9 @@
 #include <glm/geometric.hpp>
 
 namespace Pooraytracer {
-	using glm::vec3;
-	using color = glm::vec3;
-	using point3 = glm::vec3;
+	using vec3 = glm::dvec3;
+	using color = glm::dvec3;
+	using point3 = glm::dvec3;
 
 	struct MaterialEvalContext {
 	public:
@@ -37,7 +37,7 @@ namespace Pooraytracer {
 	public:
 		vec3 wi;		// local space wi
 		vec3 f;			// brdf
-		float pdf;
+		double pdf;
 		color radiance; // for light sampler
 		SampleFlags flags;
 	};
@@ -50,8 +50,8 @@ namespace Pooraytracer {
 	class Material {
 	public:
 		virtual ~Material() = default;
-		virtual color Emmited(float u, float v, const point3& p) const {
-			return color(0.f, 0.f, 0.f);
+		virtual color Emmited(double u, double v, const point3& p) const {
+			return color(0., 0., 0.);
 		}
 		virtual bool Scatter(const Ray& rayIn, const HitRecord& record, color& attenuation, Ray& scatteredRay) const {
 			return false;
@@ -60,22 +60,22 @@ namespace Pooraytracer {
 			return MaterialSampleContext{};
 		};
 		virtual vec3 Eval(const vec3& wi, const MaterialEvalContext& context) const {
-			return vec3(0.f, 0.f, 0.f);
+			return vec3(0., 0., 0.);
 		};
-		virtual float PDF(const vec3& wi, const MaterialEvalContext& context) const {
-			return 1.0f;
+		virtual double PDF(const vec3& wi, const MaterialEvalContext& context) const {
+			return 1.0;
 		}
 		virtual bool HasEmission() const { return false; }
-		virtual color GetEmission() const { return color(0.f, 0.f, 0.f); }
+		virtual color GetEmission() const { return color(0., 0., 0.); }
 
 	protected:
-		vec3 LocalToWorld(const vec3 &local, const MaterialEvalContext& context) const
+		vec3 LocalToWorld(const vec3& local, const MaterialEvalContext& context) const
 		{
 			const vec3& normal = context.n;
 			const vec3& tangent = context.dpdus;
 			vec3 bitangent = glm::cross(tangent, normal);
 
-			return glm::normalize(local.x * tangent + local.y * bitangent + local.z * normal );
+			return glm::normalize(local.x * tangent + local.y * bitangent + local.z * normal);
 		}
 		vec3 WorldToLocal(const vec3& world, const HitRecord& record) const
 		{
@@ -83,9 +83,9 @@ namespace Pooraytracer {
 			const vec3& tangent = record.tangent;
 			vec3 bitangent = glm::cross(tangent, normal);
 
-			float x = glm::dot(world, tangent);
-			float y = glm::dot(world, bitangent);
-			float z = glm::dot(world, normal);
+			double x = glm::dot(world, tangent);
+			double y = glm::dot(world, bitangent);
+			double z = glm::dot(world, normal);
 
 			return vec3(x, y, z);
 		}
@@ -106,9 +106,9 @@ namespace Pooraytracer {
 			sampleContext.f = Eval(wi, context);
 			return sampleContext;
 		}
-		float PDF(const vec3& wi, const MaterialEvalContext& context) const override
-		{   
-			float cosTheta = wi.z;
+		double PDF(const vec3& wi, const MaterialEvalContext& context) const override
+		{
+			double cosTheta = wi.z;
 			return cosTheta * InvPi;
 		}
 		vec3 Eval(const vec3& wi, const MaterialEvalContext& context) const override {
@@ -123,15 +123,15 @@ namespace Pooraytracer {
 			context.n = record.normal;
 			context.wo = WorldToLocal(-rayIn.direction, record);
 			context.dpdus = record.tangent;
-		
+
 			MaterialSampleContext sampleContext = Sample(context);
 			const vec3& wi = sampleContext.wi;
-			const float cosTheta = sampleContext.wi.z;
+			const double cosTheta = sampleContext.wi.z;
 			const vec3& fr = sampleContext.f;
-			const float& pdf = sampleContext.pdf;
+			const double& pdf = sampleContext.pdf;
 
 			scatteredRay = Ray(record.position, LocalToWorld(wi, context));
-			attenuation = fr*cosTheta/pdf; // attenuation = f_r * cos{θ_i} / pdf
+			attenuation = fr * cosTheta / pdf; // attenuation = f_r * cos{θ_i} / pdf
 
 			return true;
 		}
@@ -145,33 +145,34 @@ namespace Pooraytracer {
 
 		DiffuseLight(shared_ptr<Texture> texture) :texture(texture) {}
 		DiffuseLight(const color& emit) :texture(make_shared<SolidColor>(emit)) {}
-	
-		color Emmited(float u, float v, const point3& p) const override {
+
+		color Emmited(double u, double v, const point3& p) const override {
 			return texture->Value(u, v, p);
 		}
 		bool HasEmission() const override { return true; }
-		color GetEmission() const override { return Emmited(0.f, 0.f, point3( 0.f )); }
+		color GetEmission() const override { return Emmited(0., 0., point3(0.)); }
 	private:
 		shared_ptr<Texture> texture;
 	};
 
 	class PhoneReflectance : public Material {
 	public:
-		PhoneReflectance(const color& Kd, const color& Ks, float Ns) :
+		PhoneReflectance(const color& Kd, const color& Ks, double Ns) :
 			Kd(make_shared<SolidColor>(Kd)), Ks(make_shared<SolidColor>(Ks)), Ns(Ns) {
 			color kdks = Kd + Ks;
-			float invDenom = 1.0f/(kdks.r + kdks.g + kdks.b);
+			double invDenom = 1.0 / (kdks.r + kdks.g + kdks.b);
 			pkd = (Kd.r + Kd.g + Kd.b) * invDenom;
 			pks = (Ks.r + Ks.g + Ks.b) * invDenom;
 		}
-		PhoneReflectance(shared_ptr<Texture> mapKd, const color& Ks, float Ns) :
-			Kd(mapKd), Ks(make_shared<SolidColor>(Ks)), Ns(Ns), pkd(0.5), pks(0.5) { }
+		PhoneReflectance(shared_ptr<Texture> mapKd, const color& Ks, double Ns) :
+			Kd(mapKd), Ks(make_shared<SolidColor>(Ks)), Ns(Ns), pkd(0.5), pks(0.5) {
+		}
 
 		MaterialSampleContext Sample(const MaterialEvalContext& context) const override {
 			MaterialSampleContext sampleContext{};
 
-			float u = RandomFloat();
-			if (u < pkd) 
+			double u = RandomDouble();
+			if (u < pkd)
 			{
 				// Sample Diffuse
 				vec3 wi = SampleCosineHemisphere();
@@ -184,35 +185,35 @@ namespace Pooraytracer {
 			else if (pkd <= u && u < pkd + pks)
 			{
 				// Sample Specular
-				float u1 = RandomFloat(), u2 = RandomFloat();
-				float alpha = glm::acos(glm::pow(u1, 1.0 / (Ns + 1.0)));
-				float phi = 2.0f * Pi * u2;
-				float sinAlpha = glm::sin(alpha), cosAlpha = glm::cos(alpha),
+				double u1 = RandomDouble(), u2 = RandomDouble();
+				double alpha = glm::acos(glm::pow(u1, 1.0 / (Ns + 1.0)));
+				double phi = 2.0 * Pi * u2;
+				double sinAlpha = glm::sin(alpha), cosAlpha = glm::cos(alpha),
 					sinPhi = glm::sin(phi), cosPhi = glm::cos(phi);
 				vec3 reflectWi = vec3(sinAlpha * cosPhi, sinAlpha * sinPhi, cosAlpha);
 
 				sampleContext.wi = ReflectiveSpaceToLocal(reflectWi, context);
 				sampleContext.pdf = SpecularPDF(sampleContext.wi, context);
-				vec3 localReflect = glm::normalize( Reflect(context.wo, vec3(0, 0, 1)) );
-				float localCosAlpha = glm::dot(sampleContext.wi, localReflect);
+				vec3 localReflect = glm::normalize(Reflect(context.wo, vec3(0., 0., 1.)));
+				double localCosAlpha = glm::dot(sampleContext.wi, localReflect);
 				// f_r_specular = ks*(Ns+2)/(2*Pi)*(cosα)^n
-				sampleContext.f = Ks->Value(context.uv[0], context.uv[1], context.p) * (Ns + 2) * Inv2Pi * glm::pow(localCosAlpha, Ns);
+				sampleContext.f = Ks->Value(context.uv[0], context.uv[1], context.p) * (Ns + 2.) * Inv2Pi * glm::pow(localCosAlpha, Ns);
 				sampleContext.flags = SampleFlags::Specular;
 			}
 
 			return sampleContext;
 		}
-		float DiffusePDF(const vec3& wi, const MaterialEvalContext& context) const
-		{  
+		double DiffusePDF(const vec3& wi, const MaterialEvalContext& context) const
+		{
 			// wi : local space.
-			float cosTheta = wi.z;
+			double cosTheta = wi.z;
 			return cosTheta * InvPi;
 		}
-		float SpecularPDF(const vec3& wi, const MaterialEvalContext& context) const
+		double SpecularPDF(const vec3& wi, const MaterialEvalContext& context) const
 		{
-			vec3 localReflect = glm::normalize( Reflect(context.wo, vec3(0, 0, 1)) );
-			float cosAlpha = glm::dot(wi, localReflect);
-			return (Ns+1.0) * Inv2Pi * glm::pow(cosAlpha, Ns);
+			vec3 localReflect = glm::normalize(Reflect(context.wo, vec3(0., 0., 1.)));
+			double cosAlpha = glm::dot(wi, localReflect);
+			return (Ns + 1.0) * Inv2Pi * glm::pow(cosAlpha, Ns);
 		}
 		bool Scatter(const Ray& rayIn, const HitRecord& record, color& attenuation, Ray& scatteredRay)
 			const override {
@@ -226,9 +227,9 @@ namespace Pooraytracer {
 
 			MaterialSampleContext sampleContext = Sample(context);
 			const vec3& wi = sampleContext.wi;
-			float cosTheta = wi.z;
+			double cosTheta = wi.z;
 			const vec3& fr = sampleContext.f;
-			const float& pdf = sampleContext.pdf;
+			const double& pdf = sampleContext.pdf;
 
 			scatteredRay = Ray(record.position, LocalToWorld(wi, context));
 			attenuation = fr * cosTheta / pdf;
@@ -236,29 +237,29 @@ namespace Pooraytracer {
 			return true;
 		}
 
-		vec3 Reflect(const vec3 &wo, const vec3 &n) const {
-			return -wo + 2 * dot(wo, n) * n;
+		vec3 Reflect(const vec3& wo, const vec3& n) const {
+			return -wo + 2. * dot(wo, n) * n;
 		}
 		vec3 LocalToReflectiveSpace(const vec3& local, const MaterialEvalContext& context) const
 		{
 			// Local Space to Reflective Space
-			vec3 localR = glm::normalize(Reflect(context.wo, vec3(0, 0, 1)));
-			vec3 V = (std::fabs(localR.x) > 0.9f ? vec3(0, 1, 0) : vec3(1, 0, 0));
+			vec3 localR = glm::normalize(Reflect(context.wo, vec3(0., 0., 1.)));
+			vec3 V = (std::fabs(localR.x) > 0.9 ? vec3(0., 1., 0.) : vec3(1., 0., 0.));
 
 			vec3 T = glm::normalize(glm::cross(V, localR));
 			vec3 B = glm::cross(localR, T);
 
-			float x = glm::dot(local, T);
-			float y = glm::dot(local, B);
-			float z = glm::dot(local, localR);
+			double x = glm::dot(local, T);
+			double y = glm::dot(local, B);
+			double z = glm::dot(local, localR);
 
 			return vec3(x, y, z);
 		}
 		vec3 ReflectiveSpaceToLocal(const vec3& reflect, const MaterialEvalContext& context) const
 		{
 			// Local Space to Reflective Space
-			vec3 localR = glm::normalize(Reflect(context.wo, vec3(0, 0, 1)));
-			vec3 V = (std::fabs(localR.x) > 0.9f ? vec3(0, 1, 0) : vec3(1, 0, 0));
+			vec3 localR = glm::normalize(Reflect(context.wo, vec3(0., 0., 1.)));
+			vec3 V = (std::fabs(localR.x) > 0.9 ? vec3(0., 1., 0.) : vec3(1., 0., 0.));
 
 			vec3 T = glm::normalize(glm::cross(V, localR));
 			vec3 B = glm::cross(localR, T);
@@ -268,8 +269,8 @@ namespace Pooraytracer {
 	private:
 		shared_ptr<Texture> Kd;
 		shared_ptr<Texture> Ks;
-		float Ns;
-		float pkd, pks; 
+		double Ns;
+		double pkd, pks;
 	};
 
 	class DebugMaterial : public Material {
@@ -278,8 +279,8 @@ namespace Pooraytracer {
 		DebugMaterial(shared_ptr<Texture> texture) :texture(texture) {}
 		DebugMaterial(const color& albedo) :texture(make_shared<SolidColor>(albedo)) {}
 		bool HasEmission() const override { return true; }
-		color GetEmission() const override { return Emmited(0.f, 0.f, point3(0.f)); }
-		color Emmited(float u, float v, const point3& p) const override {
+		color GetEmission() const override { return Emmited(0., 0., point3(0.)); }
+		color Emmited(double u, double v, const point3& p) const override {
 			return texture->Value(u, v, p);
 		}
 	private:

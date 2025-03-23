@@ -15,7 +15,8 @@
 
 namespace Pooraytracer {
 
-	std::mutex mtx;
+	static std::mutex mtx;
+
 	void Camera::Render(Hittable& world)
 	{
 		Initialize();
@@ -26,8 +27,8 @@ namespace Pooraytracer {
 		for (int j = 0; j < imageHeight; ++j) {
 			LOGI("Scanlines remaining : {}", imageHeight - j);
 			for (int i = 0; i < imageWidth; ++i) {
-		      Ray ray = GetRay(i, j);
-				color pixelColor(0.f, 0.f, 0.f);
+			  Ray ray = GetRay(i, j);
+				color pixelColor(0., 0., 0.);
 				for (int sample = 0; sample < samplesPerPixel; ++sample)
 				{
 					pixelColor += RayColor(ray, maxDepth, world);
@@ -61,7 +62,7 @@ namespace Pooraytracer {
 				ShowProgress(process);
 				mtx.unlock();
 			}
-		};
+			};
 		for (int i = 0; i < threadNums; i++) {
 			threads[i] = std::thread(castRayMultiThread, i * times, (i + 1) * times);
 		}
@@ -75,20 +76,20 @@ namespace Pooraytracer {
 	{
 		imageWidth = (imageWidth < 1) ? 1 : imageWidth;
 		imageHeight = (imageHeight < 1) ? 1 : imageHeight;
-		aspectRatio = float(imageWidth) / float(imageHeight);
+		aspectRatio = double(imageWidth) / double(imageHeight);
 
-		colorAttachment.resize(imageWidth * imageHeight, color(0.f,0.f,0.f));
+		colorAttachment.resize(imageWidth * imageHeight, color(0., 0., 0.));
 
 		pixelSamplesScale = 1.0 / samplesPerPixel;
 
 		center = eye;
 
-		float focalLength = glm::length(eye - lookAt);
-		float theta = glm::radians(fovy);
-		float h = std::tan(theta / 2.0);
+		double focalLength = glm::length(eye - lookAt);
+		double theta = glm::radians(fovy);
+		double h = std::tan(theta / 2.0);
 
-		float viewportHeight = 2 * h * focalLength;
-		float viewportWidth = viewportHeight * aspectRatio;
+		double viewportHeight = 2. * h * focalLength;
+		double viewportWidth = viewportHeight * aspectRatio;
 
 		w = glm::normalize(eye - lookAt);
 		u = glm::normalize(glm::cross(up, w));
@@ -97,18 +98,18 @@ namespace Pooraytracer {
 		vec3 viewportU = viewportWidth * u;
 		vec3 viewportV = viewportHeight * -v;
 
-		pixelDeltaU = viewportU / (float)imageWidth;
-		pixelDeltaV = viewportV / (float)imageHeight;
-		vec3 viewportUpperLeft = center - (focalLength * w) - viewportU / 2.f - viewportV / 2.f;
-		pixel00Location = viewportUpperLeft + 0.5f * (pixelDeltaU + pixelDeltaV);
+		pixelDeltaU = viewportU / (double)imageWidth;
+		pixelDeltaV = viewportV / (double)imageHeight;
+		vec3 viewportUpperLeft = center - (focalLength * w) - viewportU / 2. - viewportV / 2.;
+		pixel00Location = viewportUpperLeft + 0.5 * (pixelDeltaU + pixelDeltaV);
 
 	}
 
 	Ray Camera::GetRay(int i, int j) const
 	{
 		//vec2 offset = SampleSquare();
-		//vec3 pixelSample = pixel00Location + ((float)i+offset.x) * pixelDeltaU + ((float)j+offset.y) * pixelDeltaV;
-		vec3 pixelSample = pixel00Location + ((float)i) * pixelDeltaU + ((float)j) * pixelDeltaV;
+		//vec3 pixelSample = pixel00Location + ((double)i+offset.x) * pixelDeltaU + ((double)j+offset.y) * pixelDeltaV;
+		vec3 pixelSample = pixel00Location + ((double)i) * pixelDeltaU + ((double)j) * pixelDeltaV;
 		vec3 origin = center;
 		vec3 direction = pixelSample - origin;
 
@@ -117,11 +118,11 @@ namespace Pooraytracer {
 
 	color Camera::RayColor(const Ray& ray, int depth, const Hittable& world)
 	{
-		if (depth < 0) {
-			return color(0.f, 0.f, 0.f);
+		if (depth < 0.) {
+			return color(0., 0., 0.);
 		}
 		HitRecord record;
-		if (!world.Hit(ray, Interval(0.001, std::numeric_limits<float>::infinity()), record))
+		if (!world.Hit(ray, Interval(0.001, std::numeric_limits<double>::infinity()), record))
 		{
 			return background;
 		}
@@ -129,10 +130,10 @@ namespace Pooraytracer {
 		{
 			return record.material->GetEmission();
 		}
-		
+
 		Ray scatteredRay;
 		color attenuation; // attenuation =  fr * cosθ / pdf(wi)
-		color scatter{0.f};
+		color scatter{ 0. };
 		HitRecord scatteredRecord;
 		if (record.material->Scatter(ray, record, attenuation, scatteredRay))
 		{
@@ -156,22 +157,29 @@ namespace Pooraytracer {
 				size_t idx = i + j * imageWidth;
 
 				color linearColor = colorAttachment[idx];
-				auto &r = linearColor.x;
-				auto &g = linearColor.y;
-				auto &b = linearColor.z;
+				auto& r = linearColor.x;
+				auto& g = linearColor.y;
+				auto& b = linearColor.z;
 
-				if (r != r) r = 0.0f;
-				if (g != g) g = 0.0f;
-				if (b != b) b = 0.0f;
+				if (r != r) r = 0.0;
+				if (g != g) g = 0.0;
+				if (b != b) b = 0.0;
 
 				color gammaColor = LinearToGamma(linearColor);
-				static const Interval intensity(0.0000f, 0.9999f);
+				static const Interval intensity(0.0000, 0.9999);
 				rawImage[idx * 3] = (uint8_t)(intensity.Clamp(gammaColor.r) * 256);
 				rawImage[idx * 3 + 1] = (uint8_t)(intensity.Clamp(gammaColor.g) * 256);
 				rawImage[idx * 3 + 2] = (uint8_t)(intensity.Clamp(gammaColor.b) * 256);
 			}
 		}
 		stbi_write_png(outputPath.c_str(), imageWidth, imageHeight, 3, rawImage.data(), imageWidth * 3);
+	}
+
+	std::string Camera::GetParametersStr() const
+	{
+		std::stringstream ss;
+		ss << "spp" << samplesPerPixel << "-depth"<<maxDepth;
+		return ss.str();
 	}
 
 	void ShowProgress(int progress)

@@ -20,15 +20,15 @@ namespace Pooraytracer {
 		std::array<vec2, 3> texCoords;// texture coords
 		vec3 normal;
 		vec3 tangent;
-		float area;
+		double area;
 		AABB bbox;
 		std::shared_ptr<Material> material; // [TODO]
 
 	private:
-		float D;
+		double D;
 		vec3 w;
 		void SetBoundingBox();
-		bool IsInterior(float alpha, float beta, HitRecord& record) const;
+		bool IsInterior(double alpha, double beta, HitRecord& record) const;
 	};
 
 	class Mesh : public HittableList {

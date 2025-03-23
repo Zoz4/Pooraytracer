@@ -26,7 +26,7 @@ namespace Pooraytracer {
 			HitRecord tempRecord;
 			bool bHitAnything = false;
 
-			float rightBound = domain.max;
+			double rightBound = domain.max;
 			for (const auto& object : objects) {
 				if (object->Hit(ray, Interval(domain.min, rightBound), tempRecord)) {
 					bHitAnything = true;
