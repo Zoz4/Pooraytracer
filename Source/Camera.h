@@ -41,7 +41,8 @@ namespace Pooraytracer {
 		Ray GetRay(int i, int j) const;
 		color RayColor(const Ray& ray, int depth, const Hittable& world, const Hittable& lights);
 
-		color LinearToGamma(color linearColor) const;
+		color LinearToSRGB(color linearColor) const;
+		double LinearToSRGB(double linearColorComponent) const;
 	};
 
 	void ShowProgress(int progress);

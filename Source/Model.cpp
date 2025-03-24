@@ -29,14 +29,31 @@ namespace Pooraytracer {
 		{"DiffuseYellow", MaterialType::Lambertian }, // Not Used!
 		{"LeftWall", MaterialType::Lambertian },
 		{"RightWall", MaterialType::Lambertian },
-		{"Light", MaterialType::DiffuseLight }
+		{"Light", MaterialType::DiffuseLight },
 
+		{"Wall", MaterialType::PhoneReflectance },
+		{"quad1", MaterialType::PhoneReflectance },
+		{"Mirror", MaterialType::PhoneReflectance },
+		{"StainlessRough", MaterialType::PhoneReflectance },
+		{"Towel", MaterialType::PhoneReflectance },
+		{"BlackWoodLacquer", MaterialType::PhoneReflectance },
+		{"Wood", MaterialType::PhoneReflectance },
+		{"WoodFloor", MaterialType::PhoneReflectance },
+		{"RoughGlass", MaterialType::PhoneReflectance },
+		{"Plastic", MaterialType::PhoneReflectance },
+		{"DarkPlastic", MaterialType::PhoneReflectance },
+		{"Bin", MaterialType::PhoneReflectance },
+		{"WallRight", MaterialType::PhoneReflectance },
+		{"DarkBorder", MaterialType::PhoneReflectance },
+		{"Trims", MaterialType::PhoneReflectance },
+		{"Ceramic", MaterialType::PhoneReflectance }
 	};
 
 	Model::Model(const std::string& modelDirectory, const std::string& modelName) :modelDirectory(modelDirectory), modelName(modelName)
 	{
 
 		const std::string& modelPath = modelDirectory + "/" + modelName + ".obj";
+
 		ProcessObjFile(modelPath);
 
 		InitializeLightsRadiance();
@@ -58,6 +75,39 @@ namespace Pooraytracer {
 		auto& shapes = reader.GetShapes();
 		auto& materials = reader.GetMaterials();
 
+		// Loading Textures...
+		for (const auto& material : materials) {
+			std::string mtlName = material.name;
+			if (!material.diffuse_texname.empty()) {
+				std::string texName = material.diffuse_texname;
+				std::shared_ptr<Texture> imageTexture = std::make_shared<ImageTexture>(modelDirectory + "/" + texName);
+				if (imageTextureInstances.find(texName) == imageTextureInstances.end()) {
+					imageTextureInstances.insert({ texName, imageTexture });
+				}
+			}
+			if (!material.specular_texname.empty()) {
+				std::string texName = material.diffuse_texname;
+				std::shared_ptr<Texture> imageTexture = std::make_shared<ImageTexture>(modelDirectory + "/" + texName);
+				if (imageTextureInstances.find(texName) == imageTextureInstances.end()) {
+					imageTextureInstances.insert({ texName, imageTexture });
+				}
+			}
+		}
+
+		// Creating Material Instances...
+		for (const auto& material : materials) {
+			std::string mtlName = material.name;
+			if (materialInstances.find(mtlName) == materialInstances.end()) {
+				
+				std::shared_ptr<Material> materialInstance = CreateMaterial(material);
+				materialInstances.insert({ mtlName, materialInstance });
+			}
+			else
+			{
+				LOGW("Some Materials Have the Same Name:{} ! ", mtlName);
+			}
+		}
+
 		// Loop over shapes
 		LOGI("Shapes/Meshes Nums: {}", shapes.size());
 		LOGI("Materials Nums: {}", materials.size());
@@ -73,7 +123,7 @@ namespace Pooraytracer {
 				shapes[s].mesh.num_face_vertices.size(),
 				material_name
 			);
-			std::shared_ptr<Material> material = CreateMaterial(materialRaw);
+			std::shared_ptr<Material> material = materialInstances.at(material_name);
 
 			// Loop over faces(polygon)
 			size_t index_offset = 0;
@@ -232,10 +282,7 @@ namespace Pooraytracer {
 		switch (type)
 		{
 		case MaterialType::PhoneReflectance: {
-			color Kd = vec3(materialRaw.diffuse[0], materialRaw.diffuse[1], materialRaw.diffuse[2]);
-			color Ks = vec3(materialRaw.specular[0], materialRaw.specular[1], materialRaw.specular[2]);
-			double Ns = materialRaw.shininess;
-			return make_shared<PhoneReflectance>(Kd, Ks, Ns);
+			return CreatePhoneReflectanceMaterial(materialRaw);
 			break;
 		}
 		case MaterialType::DiffuseLight: {
@@ -248,10 +295,13 @@ namespace Pooraytracer {
 			return make_shared<Lambertian>(albedo);
 			break;
 		}
-		case MaterialType::DebugMaterial:
-		default:
+		case MaterialType::DebugMaterial: {
 			color albedo = vec3(materialRaw.diffuse[0], materialRaw.diffuse[1], materialRaw.diffuse[2]);
 			return make_shared<DebugMaterial>(albedo);
+			break;
+		}
+		default:
+			return CreatePhoneReflectanceMaterial(materialRaw);
 			break;
 		}
 	}
@@ -286,4 +336,22 @@ namespace Pooraytracer {
 
 	}
 
+	std::shared_ptr<Material> Model::CreatePhoneReflectanceMaterial(const tinyobj::material_t& materialRaw) const
+	{
+		if (!materialRaw.diffuse_texname.empty())
+		{
+			const std::string& texName = materialRaw.diffuse_texname;
+			LOGI("Texture name: {}", materialRaw.diffuse_texname);
+			std::shared_ptr<Texture> imageTextureInstance = imageTextureInstances.at(texName);
+			color Ks = vec3(materialRaw.specular[0], materialRaw.specular[1], materialRaw.specular[2]);
+			double Ns = materialRaw.shininess;
+			return make_shared<PhoneReflectance>(imageTextureInstance, Ks, Ns);
+		}
+		else {
+			color Kd = vec3(materialRaw.diffuse[0], materialRaw.diffuse[1], materialRaw.diffuse[2]);
+			color Ks = vec3(materialRaw.specular[0], materialRaw.specular[1], materialRaw.specular[2]);
+			double Ns = materialRaw.shininess;
+			return make_shared<PhoneReflectance>(Kd, Ks, Ns);
+		}
+	}
 }

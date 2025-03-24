@@ -171,7 +171,7 @@ namespace Pooraytracer {
 			pks = (Ks.r + Ks.g + Ks.b) * invDenom;
 		}
 		PhoneReflectance(shared_ptr<Texture> mapKd, const color& Ks, double Ns) :
-			Kd(mapKd), Ks(make_shared<SolidColor>(Ks)), Ns(Ns), pkd(0.5), pks(0.5) {
+			Kd(mapKd), Ks(make_shared<SolidColor>(Ks)), Ns(Ns), pkd(1.0), pks(0.0) {
 		}
 
 		MaterialSampleContext Sample(const MaterialEvalContext& context) const override {

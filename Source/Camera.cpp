@@ -142,7 +142,7 @@ namespace Pooraytracer {
 		HitRecord lightRayHitRecord;
 		double distance = glm::length(pl - ps);
 		Ray shadePoint2LightRay(ps, lightDirection);
-		world.Hit(shadePoint2LightRay, Interval(0.001, std::numeric_limits<double>::infinity()), lightRayHitRecord);
+		world.Hit(shadePoint2LightRay, Interval(0.001, 20.0), lightRayHitRecord);
 
 		color direct{ 0. }, scatter{ 0. };
 
@@ -179,10 +179,21 @@ namespace Pooraytracer {
 		return direct + scatter;
 	}
 
-	color Camera::LinearToGamma(color linearColor) const
+	color Camera::LinearToSRGB(color linearColor) const
 	{
-		color grammaColor = glm::sqrt(linearColor);
+		color grammaColor = color(
+			LinearToSRGB(linearColor.r),
+			LinearToSRGB(linearColor.g),
+			LinearToSRGB(linearColor.b)
+		);
 		return grammaColor;
+	}
+
+	double Camera::LinearToSRGB(double linearColorComponent) const
+	{
+		if (linearColorComponent <= 0.0031308)
+			return 12.92 * linearColorComponent;
+		return 1.055 * std::pow(linearColorComponent, (1. / 2.4)) - 0.055;
 	}
 
 	void Camera::WriteColorAttachment(const std::string& outputPath) const
@@ -201,7 +212,7 @@ namespace Pooraytracer {
 				if (g != g) g = 0.0;
 				if (b != b) b = 0.0;
 
-				color gammaColor = LinearToGamma(linearColor);
+				color gammaColor = LinearToSRGB(linearColor);
 				static const Interval intensity(0.0000, 0.9999);
 				rawImage[idx * 3] = (uint8_t)(intensity.Clamp(gammaColor.r) * 256);
 				rawImage[idx * 3 + 1] = (uint8_t)(intensity.Clamp(gammaColor.g) * 256);

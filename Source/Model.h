@@ -24,6 +24,10 @@ namespace Pooraytracer {
 		std::unordered_map<std::string, color> lightRadianceMap;
 		void InitializeLightsRadiance();
 
+		std::unordered_map<std::string, std::shared_ptr<Material>> materialInstances;
+		std::unordered_map<std::string, std::shared_ptr<Texture>> imageTextureInstances;
+
 		static const std::unordered_map<std::string, MaterialType> materialTypeMap;
+		std::shared_ptr<Material> CreatePhoneReflectanceMaterial(const tinyobj::material_t& materialRaw) const;
 	};
 }
