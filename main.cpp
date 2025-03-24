@@ -12,7 +12,7 @@ int main(void)
 
 	LOGI("Hello Pooraytracer!");
 
-	const std::string fileName = "veach-mis";
+	const std::string fileName = "cornell-box";
 	LOGI("{}", fileName);
 
 	Camera camera;
@@ -30,16 +30,16 @@ int main(void)
 	//camera.threadNums = 20;
 
 	// cornell-box
-	//camera.eye = glm::vec3(278.0, 273.0, -800.0);
-	//camera.lookAt = glm::vec3(278.0, 273.0, -799.0);
-	//camera.up = glm::vec3(0.0, 1.0, 0.0);
-	//camera.fovy = 39.3077;
-	//camera.background = color(0.0, 0.0, 0.0);
-	//camera.imageWidth = 1024;
-	//camera.imageHeight = 1024;
-	//camera.samplesPerPixel = 500;
-	//camera.maxDepth = 30;
-	//camera.threadNums = 32;
+	camera.eye = glm::vec3(278.0, 273.0, -800.0);
+	camera.lookAt = glm::vec3(278.0, 273.0, -799.0);
+	camera.up = glm::vec3(0.0, 1.0, 0.0);
+	camera.fovy = 39.3077;
+	camera.background = color(0.0, 0.0, 0.0);
+	camera.imageWidth = 1024;
+	camera.imageHeight = 1024;
+	camera.samplesPerPixel = 300;
+	camera.maxDepth = 30;
+	camera.threadNums = 32;
 
 	// cornell-box for debug
 	//camera.eye = glm::vec3(278.0, 273.0, -800.0);
@@ -54,16 +54,16 @@ int main(void)
 	//camera.threadNums = 16;
 
 	// veach-mis
-	camera.eye = glm::vec3(28.2792, 5.2, 1.23612e-06);
-	camera.lookAt = glm::vec3(0.0, 2.8, 0.0);
-	camera.up = glm::vec3(0.0, 1.0, 0.0);
-	camera.fovy = 20.1143;
-	camera.background = color(0.0, 0.0, 0.0);
-	camera.imageWidth = 1280;
-	camera.imageHeight = 720;
-	camera.samplesPerPixel = 500;
-	camera.maxDepth = 30;
-	camera.threadNums = 20;
+	//camera.eye = glm::vec3(28.2792, 5.2, 1.23612e-06);
+	//camera.lookAt = glm::vec3(0.0, 2.8, 0.0);
+	//camera.up = glm::vec3(0.0, 1.0, 0.0);
+	//camera.fovy = 20.1143;
+	//camera.background = color(0.0, 0.0, 0.0);
+	//camera.imageWidth = 1280;
+	//camera.imageHeight = 720;
+	//camera.samplesPerPixel = 300;
+	//camera.maxDepth = 30;
+	//camera.threadNums = 20;
 
 	// veach-mis for debug
 	//camera.eye = glm::vec3(28.2792, 5.2, 1.23612e-06);

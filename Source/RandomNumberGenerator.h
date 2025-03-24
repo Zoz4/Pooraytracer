@@ -44,7 +44,7 @@ namespace Pooraytracer {
 			return { 0., 0. };
 		}
 		double theta, r;
-		if (std::abs(uOffset.x) > std::abs(uOffset.y)) {
+		if (std::fabs(uOffset.x) > std::fabs(uOffset.y)) {
 			r = uOffset.x;
 			theta = PiOver4 * (uOffset.y / uOffset.x);
 		}

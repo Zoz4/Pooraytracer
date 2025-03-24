@@ -101,6 +101,12 @@ namespace Pooraytracer {
 			MaterialSampleContext sampleContext{};
 			// wi: local space, (sinθcosφ，sinθsinφ, cosθ)
 			vec3 wi = SampleCosineHemisphere();
+			while (wi.z <= 0.) {
+				// wi.z == 0.0 -> pdf = 0.
+				// which will cause cosθ / pdf == NAN
+				// so we simply resample a wi
+				wi = SampleCosineHemisphere();
+			}
 			sampleContext.wi = wi;
 			sampleContext.pdf = PDF(wi, context);
 			sampleContext.f = Eval(wi, context);
@@ -176,6 +182,9 @@ namespace Pooraytracer {
 			{
 				// Sample Diffuse
 				vec3 wi = SampleCosineHemisphere();
+				while (wi.z <= 0.) {
+					wi = SampleCosineHemisphere();
+				}
 				sampleContext.wi = wi;
 				sampleContext.pdf = DiffusePDF(wi, context);
 				// f_r_diffuse = kd / pi
@@ -185,17 +194,20 @@ namespace Pooraytracer {
 			else if (pkd <= u && u < pkd + pks)
 			{
 				// Sample Specular
+				vec3 wi;
 				double u1 = RandomDouble(), u2 = RandomDouble();
 				double alpha = glm::acos(glm::pow(u1, 1.0 / (Ns + 1.0)));
 				double phi = 2.0 * Pi * u2;
 				double sinAlpha = glm::sin(alpha), cosAlpha = glm::cos(alpha),
 					sinPhi = glm::sin(phi), cosPhi = glm::cos(phi);
 				vec3 reflectWi = vec3(sinAlpha * cosPhi, sinAlpha * sinPhi, cosAlpha);
+				wi = ReflectiveSpaceToLocal(reflectWi, context);
 
-				sampleContext.wi = ReflectiveSpaceToLocal(reflectWi, context);
+				sampleContext.wi = wi;
 				sampleContext.pdf = SpecularPDF(sampleContext.wi, context);
 				vec3 localReflect = glm::normalize(Reflect(context.wo, vec3(0., 0., 1.)));
-				double localCosAlpha = glm::dot(sampleContext.wi, localReflect);
+				double localCosAlpha = std::max(0.0, glm::dot(sampleContext.wi, localReflect));
+
 				// f_r_specular = ks*(Ns+2)/(2*Pi)*(cosα)^n
 				sampleContext.f = Ks->Value(context.uv[0], context.uv[1], context.p) * (Ns + 2.) * Inv2Pi * glm::pow(localCosAlpha, Ns);
 				sampleContext.flags = SampleFlags::Specular;
@@ -223,6 +235,7 @@ namespace Pooraytracer {
 		}
 		double SpecularPDF(const vec3& wi, const MaterialEvalContext& context) const
 		{
+			if (wi.z <= 0.) return 0.0;
 			vec3 localReflect = glm::normalize(Reflect(context.wo, vec3(0., 0., 1.)));
 			double cosAlpha = glm::dot(wi, localReflect);
 			return (Ns + 1.0) * Inv2Pi * glm::pow(cosAlpha, Ns);
@@ -244,7 +257,10 @@ namespace Pooraytracer {
 			const double& pdf = sampleContext.pdf;
 
 			scatteredRay = Ray(record.position, LocalToWorld(wi, context));
-			attenuation = fr * cosTheta / pdf;
+
+			if (pdf > 0.) {
+				attenuation = fr * cosTheta / pdf;
+			}
 
 			return true;
 		}

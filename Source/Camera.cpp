@@ -52,9 +52,8 @@ namespace Pooraytracer {
 					Ray ray = GetRay(i, j);
 					for (int sample = 0; sample < samplesPerPixel; ++sample)
 					{
-						colorAttachment[m] += RayColor(ray, maxDepth, world, lights);
+						colorAttachment[m] += RayColor(ray, maxDepth, world, lights) * pixelSamplesScale;
 					}
-					colorAttachment[m] *= pixelSamplesScale;
 					++m;
 				}
 				mtx.lock();

@@ -16,6 +16,7 @@ target_compile_options(glm
 
 # tinyobjloader
 add_subdirectory(tinyobjloader)
+target_compile_definitions(tinyobjloader PUBLIC TINYOBJLOADER_USE_DOUBLE) 
 
 # tinyxml2
 set(tinyxml2_BUILD_TESTING OFF CACHE BOOL "Build tests for tinyxml2" FORCE)
