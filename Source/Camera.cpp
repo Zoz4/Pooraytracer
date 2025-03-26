@@ -121,7 +121,7 @@ namespace Pooraytracer {
 			return color(0., 0., 0.);
 		}
 		HitRecord record;
-		if (!world.Hit(ray, Interval(0.001, std::numeric_limits<double>::infinity()), record))
+		if (!world.Hit(ray, Interval(0.0001, std::numeric_limits<double>::infinity()), record))
 		{
 			return background;
 		}
@@ -131,42 +131,45 @@ namespace Pooraytracer {
 		}
 		const point3& ps = record.position; // shade point
 
-		double pdfLights;
-		HitRecord lightsSamplePointRecord;
-		lights.Sample(ps, lightsSamplePointRecord, pdfLights); // sample lights from shade point
-		const point3& pl = lightsSamplePointRecord.position; // light sample point
-		vec3 lightDirection = glm::normalize(pl - ps);
-		vec3 lightNormal = lightsSamplePointRecord.normal;
-		std::shared_ptr<Material> lightMaterial = lightsSamplePointRecord.material;
+		color direct{ 0.,0.,0. }, scatter{ 0.,0.,0. };
 
-		HitRecord lightRayHitRecord;
-		double distance = glm::length(pl - ps);
-		Ray shadePoint2LightRay(ps, lightDirection);
-		world.Hit(shadePoint2LightRay, Interval(0.001, 20.0), lightRayHitRecord);
+		if (bSampleLights && !record.material->SkipLightSampling())
+		{
+			double pdfLights=0.0;
+			HitRecord lightsSamplePointRecord;
+			lights.Sample(ps, lightsSamplePointRecord, pdfLights); // sample lights from shade point
+			const point3& pl = lightsSamplePointRecord.position; // light sample point
+			vec3 lightDirection = glm::normalize(pl - ps);		 // shade point to light sample point
+			vec3 lightNormal = lightsSamplePointRecord.normal;
+			std::shared_ptr<Material> lightMaterial = lightsSamplePointRecord.material;
 
-		color direct{ 0. }, scatter{ 0. };
+			HitRecord lightRayHitRecord;
+			double distance = glm::length(pl - ps);
+			Ray shadePoint2LightRay(ps, lightDirection);
+			world.Hit(shadePoint2LightRay, Interval(0.001, std::numeric_limits<double>::max()), lightRayHitRecord);
 
-		const point3& pNearest = lightRayHitRecord.position;
-		if (lightsSamplePointRecord.bFrontFace && // light area is front to shade point
-			distance - glm::length(ps - pNearest) < 0.001) { // shade point is visible to light
+			const point3& pNearest = lightRayHitRecord.position;
+			if (glm::dot(record.normal, lightDirection) > 0.0 && // light direction is in the same side of eye's ray
+				lightsSamplePointRecord.bFrontFace && // light area is front to shade point
+				distance - glm::length(ps - pNearest) < 0.001) { // shade point is visible to light
 
-			color emission = lightMaterial->GetEmission();
-			//LOGI("emmision: {}", glm::to_string(emission).c_str());
-			MaterialEvalContext context;
-			context.p = record.position;
-			context.uv = record.uv;
-			context.n = record.normal;
-			context.wo = Material::WorldToLocal(-ray.direction, record);
-			context.dpdus = record.tangent;
+				color emission = lightMaterial->GetEmission();
+				MaterialEvalContext context;
+				context.p = record.position;
+				context.uv = record.uv;
+				context.n = record.normal;
+				context.dpdus = record.tangent;
+				context.wo = Material::WorldToLocal(-ray.direction, record);
 
-			// Transform all vector to shade point's local space.
-			const vec3& localWi = Material::WorldToLocal(lightDirection, record);
-			const vec3& localLightNormal = Material::WorldToLocal(lightNormal, record);
-			vec3 fr = record.material->Eval(localWi, context);
-			double cosTheta = localWi.z; // θ: the angle of light direction and face normal
-			double cosThetaBar = glm::dot(localLightNormal, -localWi);  // θ': the angle of light area normal and light direcction
+				// Transform all vector to shade point's local space.
+				const vec3& localWi = Material::WorldToLocal(lightDirection, record);
+				const vec3& localLightNormal = Material::WorldToLocal(lightNormal, record);
+				vec3 fr = record.material->Eval(localWi, context);
+				double cosTheta = localWi.z; // θ: the angle of light direction and face normal
+				double cosThetaBar = glm::dot(localLightNormal, -localWi);  // θ': the angle of light area normal and light direcction
 
-			direct = emission * fr * cosTheta * cosThetaBar / (distance * distance) / pdfLights;
+				direct = emission * fr * cosTheta * cosThetaBar / (distance * distance) / pdfLights;
+			}
 		}
 
 		Ray scatteredRay;
@@ -174,19 +177,35 @@ namespace Pooraytracer {
 		HitRecord scatteredRecord;
 		if (record.material->Scatter(ray, record, attenuation, scatteredRay))
 		{
-			scatter = attenuation * RayColor(scatteredRay, depth - 1, world, lights);
+			if (bSampleLights)
+			{
+				HitRecord scatterRayHitRecord;
+				if (world.Hit(scatteredRay, Interval(0.0001, std::numeric_limits<double>::infinity()), scatterRayHitRecord)) {
+					if (!scatterRayHitRecord.material->HasEmission()) {
+						scatter = attenuation * RayColor(scatteredRay, depth - 1, world, lights);
+					}
+					else {
+						if (record.material->SkipLightSampling()) { // Perfect Specular or Phone Reflectance Ns > 1
+							scatter = attenuation * RayColor(scatteredRay, depth - 1, world, lights);
+						}
+					}
+				}
+			}
+			else {
+				scatter = attenuation * RayColor(scatteredRay, depth - 1, world, lights);
+			}
 		}
 		return direct + scatter;
 	}
 
 	color Camera::LinearToSRGB(color linearColor) const
 	{
-		color grammaColor = color(
+		color srgbColor = color(
 			LinearToSRGB(linearColor.r),
 			LinearToSRGB(linearColor.g),
 			LinearToSRGB(linearColor.b)
 		);
-		return grammaColor;
+		return srgbColor;
 	}
 
 	double Camera::LinearToSRGB(double linearColorComponent) const
@@ -212,11 +231,11 @@ namespace Pooraytracer {
 				if (g != g) g = 0.0;
 				if (b != b) b = 0.0;
 
-				color gammaColor = LinearToSRGB(linearColor);
+				color srgbColor = LinearToSRGB(linearColor);
 				static const Interval intensity(0.0000, 0.9999);
-				rawImage[idx * 3] = (uint8_t)(intensity.Clamp(gammaColor.r) * 256);
-				rawImage[idx * 3 + 1] = (uint8_t)(intensity.Clamp(gammaColor.g) * 256);
-				rawImage[idx * 3 + 2] = (uint8_t)(intensity.Clamp(gammaColor.b) * 256);
+				rawImage[idx * 3] = (uint8_t)(intensity.Clamp(srgbColor.r) * 256);
+				rawImage[idx * 3 + 1] = (uint8_t)(intensity.Clamp(srgbColor.g) * 256);
+				rawImage[idx * 3 + 2] = (uint8_t)(intensity.Clamp(srgbColor.b) * 256);
 			}
 		}
 		stbi_write_png(outputPath.c_str(), imageWidth, imageHeight, 3, rawImage.data(), imageWidth * 3);

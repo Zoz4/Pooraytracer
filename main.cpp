@@ -16,6 +16,7 @@ int main(void)
 	LOGI("{}", fileName);
 
 	Camera camera;
+	camera.bSampleLights = true;
 
 	// bathroom2 for debug
 	camera.eye = glm::vec3(4.443147659301758, 16.934431076049805, 49.91023254394531);
@@ -37,8 +38,8 @@ int main(void)
 	//camera.background = color(0.0, 0.0, 0.0);
 	//camera.imageWidth = 1024;
 	//camera.imageHeight = 1024;
-	//camera.samplesPerPixel = 100;
-	//camera.maxDepth = 30;
+	//camera.samplesPerPixel = 3000;
+	//camera.maxDepth = 100;
 	//camera.threadNums = 32;
 
 	// cornell-box for debug
@@ -91,8 +92,11 @@ int main(void)
 	lights = HittableList(make_shared<BVHNode>(lights));
 	LOGI("Building BVH End...");
 
+	auto startTime = std::chrono::steady_clock::now();
 	camera.Render(world, lights);
-	camera.WriteColorAttachment(PROJECT_ROOT"Results/" + fileName + "_" + GetTimestamp() + "_" + camera.GetParametersStr() + ".png");
+	std::string executionTime = GetExecutionTimeInMinutes(startTime);
+
+	camera.WriteColorAttachment(PROJECT_ROOT"Results/" + fileName + "_" + GetTimestamp() + "_" + camera.GetParametersStr() + "_" + executionTime + ".png");
 
 	return 0;
 }

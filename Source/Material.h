@@ -38,13 +38,12 @@ namespace Pooraytracer {
 		vec3 wi;		// local space wi
 		vec3 f;			// brdf
 		double pdf;
-		color radiance; // for light sampler
 		SampleFlags flags;
 	};
 
 	enum class MaterialType
 	{
-		Lambertian, PhoneReflectance, DiffuseLight, DebugMaterial
+		Lambertian, PhoneReflectance, PerfectMirror, DiffuseLight, DebugMaterial
 	};
 
 	class Material {
@@ -67,6 +66,7 @@ namespace Pooraytracer {
 		}
 		virtual bool HasEmission() const { return false; }
 		virtual color GetEmission() const { return color(0., 0., 0.); }
+		virtual bool SkipLightSampling() const{ return false; }
 
 	public:
 		static vec3 LocalToWorld(const vec3& local, const MaterialEvalContext& context)
@@ -88,6 +88,9 @@ namespace Pooraytracer {
 			double z = glm::dot(world, normal);
 
 			return vec3(x, y, z);
+		}
+		static vec3 Reflect(const vec3& wo, const vec3& n) {
+			return -wo + 2. * dot(wo, n) * n;
 		}
 	};
 
@@ -165,13 +168,11 @@ namespace Pooraytracer {
 	public:
 		PhoneReflectance(const color& Kd, const color& Ks, double Ns) :
 			Kd(make_shared<SolidColor>(Kd)), Ks(make_shared<SolidColor>(Ks)), Ns(Ns) {
-			color kdks = Kd + Ks;
-			double invDenom = 1.0 / (kdks.r + kdks.g + kdks.b);
-			pkd = (Kd.r + Kd.g + Kd.b) * invDenom;
-			pks = (Ks.r + Ks.g + Ks.b) * invDenom;
+			SetProbabilitiesByNs();
 		}
 		PhoneReflectance(shared_ptr<Texture> mapKd, const color& Ks, double Ns) :
-			Kd(mapKd), Ks(make_shared<SolidColor>(Ks)), Ns(Ns), pkd(1.0), pks(0.0) {
+			Kd(mapKd), Ks(mapKd), Ns(Ns) {
+			SetProbabilitiesByNs();
 		}
 
 		MaterialSampleContext Sample(const MaterialEvalContext& context) const override {
@@ -209,7 +210,10 @@ namespace Pooraytracer {
 				double localCosAlpha = std::max(0.0, glm::dot(sampleContext.wi, localReflect));
 
 				// f_r_specular = ks*(Ns+2)/(2*Pi)*(cosα)^n
-				sampleContext.f = Ks->Value(context.uv[0], context.uv[1], context.p) * (Ns + 2.) * Inv2Pi * glm::pow(localCosAlpha, Ns);
+				if (wi.z > 0. && localCosAlpha > 0.) {
+					sampleContext.f = Ks->Value(context.uv[0], context.uv[1], context.p) * (Ns + 2.) * Inv2Pi * glm::pow(localCosAlpha, Ns);
+				}
+				
 				sampleContext.flags = SampleFlags::Specular;
 			}
 
@@ -218,11 +222,21 @@ namespace Pooraytracer {
 		vec3 Eval(const vec3& wi, const MaterialEvalContext& context) const override {
 			double u = RandomDouble();
 			if (u < pkd) {
+				if (wi.z <= 0) {
+					return vec3(0.0,0.0,0.0);
+				}
 				return Kd->Value(context.uv[0], context.uv[1], context.p) * InvPi;
 			}
 			else if (pkd <= u && u < pkd + pks) {
+				if (wi.z <= 0) {
+					return vec3(0.0, 0.0, 0.0);
+				}
 				vec3 localReflect = glm::normalize(Reflect(context.wo, vec3(0., 0., 1.)));
-				double localCosAlpha = glm::dot(wi, localReflect);
+				double localCosAlpha = std::max(0., glm::dot(wi, localReflect));
+				if (localCosAlpha <= 0.) {
+					return vec3(0.0, 0.0, 0.0);
+				}
+
 				return Ks->Value(context.uv[0], context.uv[1], context.p) * (Ns + 2.) * Inv2Pi * glm::pow(localCosAlpha, Ns);
 			}
 			return vec3(0.);
@@ -258,16 +272,13 @@ namespace Pooraytracer {
 
 			scatteredRay = Ray(record.position, LocalToWorld(wi, context));
 
-			if (pdf > 0.) {
+			if (pdf > 0. && wi.z > 0) {
 				attenuation = fr * cosTheta / pdf;
 			}
 
 			return true;
 		}
 
-		vec3 Reflect(const vec3& wo, const vec3& n) const {
-			return -wo + 2. * dot(wo, n) * n;
-		}
 		vec3 LocalToReflectiveSpace(const vec3& local, const MaterialEvalContext& context) const
 		{
 			// Local Space to Reflective Space
@@ -299,6 +310,54 @@ namespace Pooraytracer {
 		shared_ptr<Texture> Ks;
 		double Ns;
 		double pkd, pks;
+		void SetProbabilitiesByNs() {
+			if (Ns <= 1.) {
+				pkd = 1.0;
+				pks = 0.0;
+			}
+			else {
+				pkd = 0.6;
+				pks = 0.4;
+			}
+		}
+		bool SkipLightSampling() const override{ return Ns>1.; }
+	
+	};
+
+	class PerfectMirror :public Material {
+	public:
+		MaterialSampleContext Sample(const MaterialEvalContext& context) const override
+		{
+			const vec3& wo = context.wo;
+			MaterialSampleContext sampleContext;
+			sampleContext.wi = Reflect(wo, vec3(0., 0., 1.));
+			double cosTheta = sampleContext.wi.z;
+			sampleContext.f = color(1.0, 1.0, 1.0)/ cosTheta;
+			sampleContext.pdf = 1;
+			return sampleContext;
+		}
+		bool Scatter(const Ray& rayIn, const HitRecord& record, color& attenuation, Ray& scatteredRay) const override
+		{
+			MaterialEvalContext context{};
+			context.p = record.position;
+			context.uv = record.uv;
+			context.n = record.normal;
+			context.wo = WorldToLocal(-rayIn.direction, record);
+			context.dpdus = record.tangent;
+
+			MaterialSampleContext sampleContext = Sample(context);
+			const vec3& wi = sampleContext.wi;
+			double cosTheta = wi.z;
+			const vec3& fr = sampleContext.f;// fr = vec3(1., 1., 1.)
+			const double& pdf = sampleContext.pdf; // pdf ~ δ function
+
+			scatteredRay = Ray(record.position, LocalToWorld(wi, context));
+			attenuation = fr * cosTheta / pdf;
+
+			return true;
+		}
+
+		bool SkipLightSampling() const override { return true; }
 	};
 
 	class DebugMaterial : public Material {

@@ -33,7 +33,7 @@ namespace Pooraytracer {
 
 		{"Wall", MaterialType::PhoneReflectance },
 		{"quad1", MaterialType::PhoneReflectance },
-		{"Mirror", MaterialType::PhoneReflectance },
+		{"Mirror", MaterialType::PerfectMirror },
 		{"StainlessRough", MaterialType::PhoneReflectance },
 		{"Towel", MaterialType::PhoneReflectance },
 		{"BlackWoodLacquer", MaterialType::PhoneReflectance },
@@ -42,7 +42,7 @@ namespace Pooraytracer {
 		{"RoughGlass", MaterialType::PhoneReflectance },
 		{"Plastic", MaterialType::PhoneReflectance },
 		{"DarkPlastic", MaterialType::PhoneReflectance },
-		{"Bin", MaterialType::PhoneReflectance },
+		{"Bin", MaterialType::PerfectMirror },
 		{"WallRight", MaterialType::PhoneReflectance },
 		{"DarkBorder", MaterialType::PhoneReflectance },
 		{"Trims", MaterialType::PhoneReflectance },
@@ -293,6 +293,10 @@ namespace Pooraytracer {
 		case MaterialType::Lambertian: {
 			vec3 albedo = vec3(materialRaw.diffuse[0], materialRaw.diffuse[1], materialRaw.diffuse[2]);
 			return make_shared<Lambertian>(albedo);
+			break;
+		}
+		case MaterialType::PerfectMirror: {
+			return make_shared<PerfectMirror>();
 			break;
 		}
 		case MaterialType::DebugMaterial: {

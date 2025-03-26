@@ -24,8 +24,17 @@ inline std::string GetTimestamp()
 		<< std::setw(2) << (tm_now->tm_mon + 1) << ""
 		<< std::setw(2) << tm_now->tm_mday << "_"
 		<< std::setw(2) << tm_now->tm_hour << ""
-		<< std::setw(2) << tm_now->tm_min << ""
-		<< std::setw(2) << tm_now->tm_sec;
+		<< std::setw(2) << tm_now->tm_min;
 
+	return ss.str();
+}
+
+inline std::string GetExecutionTimeInMinutes(const std::chrono::steady_clock::time_point& start) {
+	auto end = std::chrono::steady_clock::now();
+	auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+
+	double seconds = duration.count() / 1000.0;
+	std::stringstream ss;
+	ss << std::fixed << std::setprecision(2) << seconds <<"s";
 	return ss.str();
 }

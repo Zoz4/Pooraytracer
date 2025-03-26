@@ -28,6 +28,8 @@ namespace Pooraytracer {
 		void WriteColorAttachment(const std::string& outputPath) const;
 		std::string GetParametersStr() const;
 
+		bool bSampleLights = true;
+
 	private:
 		double aspectRatio;			// Ratio of image width over height
 		double pixelSamplesScale;	// 1.0/samplesPerPixel
