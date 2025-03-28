@@ -34,8 +34,6 @@ namespace Pooraytracer {
 		virtual bool Hit(const Ray& ray, Interval domain, HitRecord& record) const = 0;
 		virtual AABB BoundingBox() const = 0;
 		virtual void Sample(const point3& origin, HitRecord& samplePointRecord, double& pdf) const {}
-		virtual double GetArea() const {
-			return 0.0;
-		}
+		virtual double GetArea() const { return 0.0; }
 	};
 }

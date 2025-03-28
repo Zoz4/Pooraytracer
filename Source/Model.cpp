@@ -25,7 +25,7 @@ namespace Pooraytracer {
 		{"light4", MaterialType::DiffuseLight},
 
 		{"DiffuseWhite", MaterialType::Lambertian }, // Top, Back & Bottom
-		{"DiffuseBall", MaterialType::Lambertian },
+		{"DiffuseBall", MaterialType::CookTorrance },
 		{"DiffuseYellow", MaterialType::Lambertian }, // Not Used!
 		{"LeftWall", MaterialType::Lambertian },
 		{"RightWall", MaterialType::Lambertian },
@@ -297,6 +297,17 @@ namespace Pooraytracer {
 		}
 		case MaterialType::PerfectMirror: {
 			return make_shared<PerfectMirror>();
+			break;
+		}
+		case MaterialType::CookTorrance: {
+			color Kd = vec3(materialRaw.diffuse[0], materialRaw.diffuse[1], materialRaw.diffuse[2]);
+			double alphaX = 0.3, alphaY = 0.3;
+			vec3 eta = vec3(0.1, 0.5, 1.5) , k = vec3(4.0, 0.02, 0.3);	// Au
+			//vec3 eta = vec3(0.02, 0.04, 0.14), k = vec3(3.9, 2.4, 3.0);	// Ag
+			//vec3 eta = vec3(0.3, 0.7, 1.1), k = vec3(4.4, 3.1, 2.5);      // Cu
+			//vec3 eta = vec3(2.35, 2.38, 2.4), k = vec3(0, 0, 0);			// BaTiO₃
+			//vec3 eta = vec3(1.75, 1.76, 1.78), k = vec3(0, 0, 0);			// Al₂O₃
+			return make_shared<CookTorrance>(Kd, alphaX, alphaY, eta, k);
 			break;
 		}
 		case MaterialType::DebugMaterial: {

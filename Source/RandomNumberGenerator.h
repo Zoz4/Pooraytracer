@@ -66,4 +66,9 @@ namespace Pooraytracer {
 		// Returns the vector to a random point in the [-.5,-.5]-[+.5,+.5] unit square.
 		return glm::dvec2(RandomDouble() - 0.5, RandomDouble() - 0.5);
 	}
+	inline glm::dvec2 SampleUniformDiskPolar(glm::dvec2 u) {// [0, 1)
+		double r = std::sqrt(u[0]);
+		double theta = 2 * Pi * u[1];
+		return { r * std::cos(theta), r * std::sin(theta) };
+	}
 }
