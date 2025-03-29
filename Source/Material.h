@@ -429,7 +429,6 @@ namespace Pooraytracer {
 				std::max < double > (1e-6, nh.z)));
 		}
 
-
 		MaterialSampleContext Sample(const MaterialEvalContext& context) const override
 		{
 			MaterialSampleContext sampleContext{};
@@ -458,7 +457,7 @@ namespace Pooraytracer {
 
 			//double F = FrComplex(AbsDot(wo, wm), Complex<double>(eta, k));
 			//color diffuse = (vec3(1.0f) - F) * texture->Value(context.uv[0], context.uv[1], point3(0)) / Pi;
-			vec3 f = vec3(D(wm) * F * G(wo, wi) / (4. * cosTheta_i * cosTheta_o)) /*+ diffuse*/;
+			vec3 f = vec3(D(wm) * F * G(wo, wi) / (4. * cosTheta_i * cosTheta_o));
 
 			sampleContext.f = f;
 			sampleContext.pdf = pdf;
@@ -489,10 +488,9 @@ namespace Pooraytracer {
 
 			//double F = FrComplex(AbsDot(wo, wm), Complex<double>(eta, k));
 
-
+			//color diffuse = (vec3(1.0f) - F) * texture->Value(context.uv[0], context.uv[1], point3(0)) / Pi;
 			return vec3(D(wm)*F*G(wo, wi)/ (4 * cosTheta_i * cosTheta_o));
 		}
-
 		bool Scatter(const Ray& rayIn, const HitRecord& record, color& attenuation, Ray& scatteredRay)
 			const override {
 
@@ -516,13 +514,10 @@ namespace Pooraytracer {
 			scatteredRay = Ray(record.position, LocalToWorld(wi, context));
 			return true;
 		}
-		bool SkipLightSampling() const override{ return false; }
 	private:
 		vec3 eta, k;
 		double alphaX = 0.2, alphaY = 0.2;
 		shared_ptr<Texture> texture;
-
-	
 	};
 
 	class DebugMaterial : public Material {

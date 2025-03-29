@@ -16,7 +16,7 @@ namespace Pooraytracer {
 		int samplesPerPixel = 1;	// Count of random samples for each pixel
 		int threadNums = 16;
 		int maxDepth = 10;
-		color background;
+		color background = color(0.,0.,0.);
 
 		double fovy = 90.;
 		vec3 eye = vec3(0., 0., 0.);
@@ -27,8 +27,10 @@ namespace Pooraytracer {
 		void Render(Hittable& world, Hittable& lights);
 		void WriteColorAttachment(const std::string& outputPath) const;
 		std::string GetParametersStr() const;
+		void SetViewParametersByXmlFile(const std::string& xmlFilePath);
 
 		bool bSampleLights = true;
+		double russianRoulette = 0.8;
 
 	private:
 		double aspectRatio;			// Ratio of image width over height

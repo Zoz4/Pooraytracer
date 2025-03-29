@@ -3,6 +3,7 @@
 #include <glm/geometric.hpp>
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <stb_image_write.h>
+#include <tinyxml2.h>
 
 #include "Camera.h"
 #include "Ray.h"
@@ -175,24 +176,28 @@ namespace Pooraytracer {
 		Ray scatteredRay;
 		color attenuation; // attenuation =  fr * cosθ / pdf(wi) : Indirect illumination
 		HitRecord scatteredRecord;
-		if (record.material->Scatter(ray, record, attenuation, scatteredRay))
+		// russian roulette
+		if (RandomDouble() < russianRoulette)
 		{
-			if (bSampleLights)
+			if (record.material->Scatter(ray, record, attenuation, scatteredRay))
 			{
-				HitRecord scatterRayHitRecord;
-				if (world.Hit(scatteredRay, Interval(0.0001, std::numeric_limits<double>::infinity()), scatterRayHitRecord)) {
-					if (!scatterRayHitRecord.material->HasEmission()) {
-						scatter = attenuation * RayColor(scatteredRay, depth - 1, world, lights);
-					}
-					else {
-						if (record.material->SkipLightSampling()) { // Perfect Specular or Phone Reflectance Ns > 1
-							scatter = attenuation * RayColor(scatteredRay, depth - 1, world, lights);
+				if (bSampleLights)
+				{
+					HitRecord scatterRayHitRecord;
+					if (world.Hit(scatteredRay, Interval(0.0001, std::numeric_limits<double>::infinity()), scatterRayHitRecord)) {
+						if (!scatterRayHitRecord.material->HasEmission()) {
+							scatter = attenuation * RayColor(scatteredRay, depth - 1, world, lights)/russianRoulette;
+						}
+						else {
+							if (record.material->SkipLightSampling()) { // Perfect Specular or Phone Reflectance Ns > 1
+								scatter = attenuation * RayColor(scatteredRay, depth - 1, world, lights) / russianRoulette;
+							}
 						}
 					}
 				}
-			}
-			else {
-				scatter = attenuation * RayColor(scatteredRay, depth - 1, world, lights);
+				else {
+					scatter = attenuation * RayColor(scatteredRay, depth - 1, world, lights) / russianRoulette;
+				}
 			}
 		}
 		return direct + scatter;
@@ -246,6 +251,58 @@ namespace Pooraytracer {
 		std::stringstream ss;
 		ss << "spp" << samplesPerPixel << "-depth" << maxDepth;
 		return ss.str();
+	}
+
+	void Camera::SetViewParametersByXmlFile(const std::string& xmlFilePath)
+	{
+		tinyxml2::XMLDocument doc;
+		if (doc.LoadFile((xmlFilePath).c_str()) != tinyxml2::XML_SUCCESS) {
+			LOGE("Failed to load XML file: {}", xmlFilePath);
+		}
+		tinyxml2::XMLElement* camera = doc.FirstChildElement("camera");
+		if (camera) {
+			const char* type = camera->Attribute("type");
+			int width, height;
+			double fovy;
+			camera->QueryIntAttribute("width", &width);
+			camera->QueryIntAttribute("height", &height);
+			camera->QueryDoubleAttribute("fovy", &fovy);
+			LOGI("Camera Type: {}", (type ? type : "Unknown"));
+			LOGI("Resolution: {}x{}", width, height);
+			LOGI("FOV Y: {}", fovy);
+
+			this->imageWidth = width;
+			this->imageHeight = height;
+			this->fovy = fovy;
+
+			tinyxml2::XMLElement* eye = camera->FirstChildElement("eye");
+			if (eye) {
+				double x, y, z;
+				eye->QueryDoubleAttribute("x", &x);
+				eye->QueryDoubleAttribute("y", &y);
+				eye->QueryDoubleAttribute("z", &z);
+				LOGI("Eye Position: ({}, {}, {})", x, y, z);
+				this->eye = vec3(x, y, z);
+			}
+			tinyxml2::XMLElement* lookat = camera->FirstChildElement("lookat");
+			if (lookat) {
+				double x, y, z;
+				lookat->QueryDoubleAttribute("x", &x);
+				lookat->QueryDoubleAttribute("y", &y);
+				lookat->QueryDoubleAttribute("z", &z);
+				LOGI("lookat: ({}, {}, {})", x, y, z);
+				this->lookAt = vec3(x, y, z);
+			}
+			tinyxml2::XMLElement* up = camera->FirstChildElement("up");
+			if (up) {
+				double x, y, z;
+				up->QueryDoubleAttribute("x", &x);
+				up->QueryDoubleAttribute("y", &y);
+				up->QueryDoubleAttribute("z", &z);
+				LOGI("up: ({}, {}, {})", x, y, z);
+				this->up = vec3(x, y, z);
+			}
+		}
 	}
 
 	void ShowProgress(int progress)

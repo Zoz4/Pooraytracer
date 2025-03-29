@@ -11,73 +11,26 @@ int main(void)
 	using namespace Pooraytracer;
 
 	LOGI("Hello Pooraytracer!");
-
-	const std::string fileName = "cornell-box";
+	// cornell-box
+	// veach-mis
+	// bathroom2
+	const std::string fileName = "bathroom2";
+	const std::string filePath = RESOURCES_DIR + fileName;
+	// .obj file path filePath/fileName.obj
+	// .xml file path filePath/fileName.xml
 	LOGI("{}", fileName);
+	LOGI("{}", filePath);
 
 	Camera camera;
 	camera.bSampleLights = true;
-
-	// bathroom2 for debug
-	//camera.eye = glm::vec3(4.443147659301758, 16.934431076049805, 49.91023254394531);
-	//camera.lookAt = glm::vec3(-2.5734899044036865, 9.991769790649414, -10.588199615478516f);
-	//camera.up = glm::vec3(0.0, 1.0, 0.0);
-	//camera.fovy = 35.9834;
-	//camera.background = color(0.0, 0.0, 0.0);
-	//camera.imageWidth = 1280;
-	//camera.imageHeight = 720;
-	//camera.samplesPerPixel = 500;
-	//camera.maxDepth = 25;
-	//camera.threadNums = 20;
-
-	// cornell-box
-	camera.eye = glm::vec3(278.0, 273.0, -800.0);
-	camera.lookAt = glm::vec3(278.0, 273.0, -799.0);
-	camera.up = glm::vec3(0.0, 1.0, 0.0);
-	camera.fovy = 39.3077;
-	camera.background = color(0.0, 0.0, 0.0);
-	camera.imageWidth = 1024;
-	camera.imageHeight = 1024;
+	camera.russianRoulette = 0.8;
 	camera.samplesPerPixel = 100;
-	camera.maxDepth = 10;
-	camera.threadNums = 32;
+	camera.maxDepth = 100;
+	camera.threadNums = 16;
+	camera.background = color(0.0, 0.0, 0.0);
+	camera.SetViewParametersByXmlFile(filePath + "/" + fileName + ".xml");
 
-	// cornell-box for debug
-	//camera.eye = glm::vec3(278.0, 273.0, -800.0);
-	//camera.lookAt = glm::vec3(278.0, 273.0, -799.0);
-	//camera.up = glm::vec3(0.0, 1.0, 0.0);
-	//camera.fovy = 39.3077;
-	//camera.background = color(0.0, 0.0, 0.0);
-	//camera.imageWidth = 256;
-	//camera.imageHeight = 256;
-	//camera.samplesPerPixel = 10;
-	//camera.maxDepth = 5;
-	//camera.threadNums = 16;
-
-	// veach-mis
-	//camera.eye = glm::vec3(28.2792, 5.2, 1.23612e-06);
-	//camera.lookAt = glm::vec3(0.0, 2.8, 0.0);
-	//camera.up = glm::vec3(0.0, 1.0, 0.0);
-	//camera.fovy = 20.1143;
-	//camera.background = color(0.0, 0.0, 0.0);
-	//camera.imageWidth = 1280;
-	//camera.imageHeight = 720;
-	//camera.samplesPerPixel = 50;
-	//camera.maxDepth = 10;
-	//camera.threadNums = 20;
-
-	// veach-mis for debug
-	//camera.eye = glm::vec3(28.2792, 5.2, 1.23612e-06);
-	//camera.lookAt = glm::vec3(0.0, 2.8, 0.0);
-	//camera.up = glm::vec3(0.0, 1.0, 0.0);
-	//camera.fovy = 20.1143;
-	//camera.background = color(0.0, 0.0, 0.0);
-	//camera.imageWidth = 128;
-	//camera.imageHeight = 72;
-	//camera.samplesPerPixel = 10;
-	//camera.threadNums = 16;
-
-	std::shared_ptr<Model> model = std::make_shared<Pooraytracer::Model>(RESOURCES_DIR + fileName, fileName);
+	std::shared_ptr<Model> model = std::make_shared<Pooraytracer::Model>(filePath, fileName);
 
 	LOGI("Building BVH...");
 	HittableList world;
