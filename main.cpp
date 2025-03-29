@@ -14,7 +14,7 @@ int main(void)
 	// cornell-box
 	// veach-mis
 	// bathroom2
-	const std::string fileName = "bathroom2";
+	const std::string fileName = "cornell-box";
 	const std::string filePath = RESOURCES_DIR + fileName;
 	// .obj file path filePath/fileName.obj
 	// .xml file path filePath/fileName.xml

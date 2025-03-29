@@ -47,7 +47,7 @@ namespace Pooraytracer {
 		int times = imageHeight / threadNums;
 		std::vector<std::thread> threads(threadNums);
 		auto castRayMultiThread = [&](uint32_t yMin, uint32_t yMax) {
-			for (uint32_t j = yMin; j < yMax; j++) {
+			for (uint32_t j = yMin; j < yMax && j<imageHeight; j++) {
 				int m = j * imageWidth;
 				for (uint32_t i = 0; i < imageWidth; i++) {
 					Ray ray = GetRay(i, j);
