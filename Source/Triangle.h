@@ -10,7 +10,7 @@ namespace Pooraytracer {
 	class Triangle :public Hittable {
 
 	public:
-		Triangle(const std::array<vec3, 3>& vertices, const std::array<vec2, 3> texCoords, std::shared_ptr<Material> material);
+		Triangle(const std::array<vec3, 3>& vertices, const std::array<vec3, 3>& normals, const std::array<vec2, 3>& texCoords, std::shared_ptr<Material> material);
 		bool Hit(const Ray& ray, Interval domain, HitRecord& record) const override;
 		AABB BoundingBox() const override { return bbox; }
 		double GetArea() const override { return area; }

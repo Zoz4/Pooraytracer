@@ -36,17 +36,18 @@ namespace Pooraytracer {
 		{"Mirror", MaterialType::PerfectMirror },
 		{"StainlessRough", MaterialType::Lambertian },
 		{"Towel", MaterialType::Lambertian },
-		{"BlackWoodLacquer", MaterialType::Lambertian },
-		{"Wood", MaterialType::Lambertian },
-		{"WoodFloor", MaterialType::Lambertian },
-		{"RoughGlass", MaterialType::Lambertian },
-		{"Plastic", MaterialType::Lambertian },
+		{"BlackWoodLacquer", MaterialType::Lambertian }, 
+		{"Wood", MaterialType::Lambertian },			   
+		{"WoodFloor", MaterialType::Lambertian },		   
+		{"Label", MaterialType::Lambertian},
+		{"RoughGlass", MaterialType::Lambertian },	   
+		{"Plastic", MaterialType::Lambertian },		   
 		{"DarkPlastic", MaterialType::Lambertian },
 		{"Bin", MaterialType::PerfectMirror },
 		{"WallRight", MaterialType::Lambertian },
 		{"DarkBorder", MaterialType::Lambertian },
 		{"Trims", MaterialType::Lambertian },
-		{"Ceramic", MaterialType::Lambertian }
+		{"Ceramic", MaterialType::Lambertian }		   
 	};
 
 	Model::Model(const std::string& modelDirectory, const std::string& modelName) :modelDirectory(modelDirectory), modelName(modelName)
@@ -132,6 +133,7 @@ namespace Pooraytracer {
 			{
 				size_t fv = size_t(shapes[s].mesh.num_face_vertices[f]);
 				std::array<vec3, 3> vertices;
+				std::array<vec3, 3> normals;
 				std::array<vec2, 3> texCoords;
 				if (fv != 3) {
 					LOGE("Only Support Triangle Mesh!");
@@ -148,11 +150,14 @@ namespace Pooraytracer {
 					vertices[v] = { vx, vy, vz };
 					//tinyobj::real_t nx, ny, nz;
 					//// Check if `normal_index` is zero or positive. negative = no normal data
-					//if (idx.normal_index >= 0) {
-					//    nx = attrib.normals[3 * size_t(idx.normal_index) + 0];
-					//    ny = attrib.normals[3 * size_t(idx.normal_index) + 1];
-					//    nz = attrib.normals[3 * size_t(idx.normal_index) + 2];
-					//}
+					
+					tinyobj::real_t nx{}, ny{}, nz{};
+					if (idx.normal_index >= 0) {
+						nx = attrib.normals[3 * size_t(idx.normal_index) + 0];
+						ny = attrib.normals[3 * size_t(idx.normal_index) + 1];
+						nz = attrib.normals[3 * size_t(idx.normal_index) + 2];
+					}
+					normals[v] = { nx, ny, nz };
 
 					tinyobj::real_t tx{}, ty{};
 					// Check if `texcoord_index` is zero or positive. negative = no texcoord data
@@ -178,7 +183,7 @@ namespace Pooraytracer {
 				////LOGI("Material Name: {}", material_name);
 				//std::shared_ptr<Material> material = make_shared<Lambertian>(albedo);// [TODO]: Implentment Material Initialize
 
-				std::shared_ptr<Triangle> triangle = make_shared<Triangle>(vertices, texCoords, material);
+				std::shared_ptr<Triangle> triangle = make_shared<Triangle>(vertices, normals, texCoords, material);
 				meshTriangles.push_back(triangle);
 
 			}// End of a face

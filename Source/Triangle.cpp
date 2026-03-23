@@ -8,7 +8,7 @@ namespace Pooraytracer {
 
 	using glm::normalize, glm::cross, glm::length, glm::dot;
 
-	Triangle::Triangle(const std::array<vec3, 3>& vertices, const std::array<vec2, 3> texCoords, std::shared_ptr<Material> material) :
+	Triangle::Triangle(const std::array<vec3, 3>& vertices, const std::array<vec3, 3>& normals, const std::array<vec2, 3>& texCoords, std::shared_ptr<Material> material) :
 		vertices(vertices), texCoords(texCoords), material(material)
 	{
 		edges[0] = vertices[1] - vertices[0];
@@ -18,6 +18,16 @@ namespace Pooraytracer {
 
 		normal = normalize(n);
 
+		if (glm::any(glm::isnan(normal)))
+		{
+			normal = normalize(normals[0] + normals[1] + normals[2]);
+			if (glm::any(glm::isnan(normal)))
+			{
+				LOGD("Triangle has an invalid normal.");
+				normal = vec3(0.0, 0.0, 1.0);
+			}
+		}
+
 		vec2 deltaUV0 = texCoords[1] - texCoords[0];
 		vec2 deltaUV1 = texCoords[2] - texCoords[0];
 		double f = 1.0 / (deltaUV0.x * deltaUV1.y - deltaUV1.x * deltaUV0.y);
@@ -25,6 +35,14 @@ namespace Pooraytracer {
 		tangent.y = f * (deltaUV1.y * edges[0].y - deltaUV0.y * edges[1].y);
 		tangent.z = f * (deltaUV1.y * edges[0].z - deltaUV0.y * edges[1].z);
 		tangent = glm::normalize(tangent);
+
+		if (glm::any(glm::isnan(tangent)))
+		{
+			LOGD("Triangle has an invalid tangent.");
+			vec3 v = normal;
+			vec3 helper = (abs(v.x) < 0.9f) ? glm::vec3(1, 0, 0) : glm::vec3(0, 1, 0);
+			tangent = normalize(cross(v, helper));
+		}
 
 		area = length(n) * 0.5;
 
@@ -81,6 +99,12 @@ namespace Pooraytracer {
 	}
 	bool Triangle::IsInterior(double alpha, double beta, HitRecord& record) const
 	{
+		if (alpha != alpha || beta != beta)
+		{
+			LOGD("Triangle hit test produced NaN barycentrics.");
+			return false;
+		}
+
 		if ((alpha < 0) || (beta < 0) || (alpha + beta > 1))
 			return false;
 
