@@ -29,5 +29,6 @@ namespace Pooraytracer {
 
 		static const std::unordered_map<std::string, MaterialType> materialTypeMap;
 		std::shared_ptr<Material> CreatePhoneReflectanceMaterial(const tinyobj::material_t& materialRaw) const;
+		std::shared_ptr<Material> CreateLambertianMaterial(const tinyobj::material_t& materialRaw) const;
 	};
 }

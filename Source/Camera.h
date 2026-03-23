@@ -25,7 +25,7 @@ namespace Pooraytracer {
 
 		std::vector <color> colorAttachment;
 		void Render(Hittable& world, Hittable& lights);
-		void WriteColorAttachment(const std::string& outputPath) const;
+		void WriteColorAttachment(const std::string& outputPath, bool bWriteHDR=true) const;
 		std::string GetParametersStr() const;
 		void SetViewParametersByXmlFile(const std::string& xmlFilePath);
 
@@ -47,6 +47,8 @@ namespace Pooraytracer {
 
 		color LinearToSRGB(color linearColor) const;
 		double LinearToSRGB(double linearColorComponent) const;
+		color ExponentialToneMapping(color linearColor) const;
+		color ACESFilmToneMapping(color linearColor) const;
 	};
 
 	void ShowProgress(int progress);

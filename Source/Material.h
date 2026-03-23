@@ -47,7 +47,7 @@ namespace Pooraytracer {
 
 	enum class MaterialType
 	{
-		Lambertian, PhoneReflectance, PerfectMirror, CookTorrance, DiffuseLight, DebugMaterial
+		Lambertian, PhoneReflectance, PerfectMirror, CookTorrance, DiffuseLight, DebugMaterial, Empty
 	};
 
 	class Material {
@@ -316,7 +316,7 @@ namespace Pooraytracer {
 		double Ns;
 		double pkd, pks;
 		void SetProbabilitiesByNs() {
-			if (Ns <= 1.) {
+			if (Ns <= 9.) {
 				pkd = 1.0;
 				pks = 0.0;
 			}
@@ -532,6 +532,11 @@ namespace Pooraytracer {
 		}
 	private:
 		shared_ptr<Texture> texture;
+	};
+
+	class EmptyMaterial : public Material {
+	public:
+		virtual bool SkipLightSampling() const { return true; }
 	};
 
 }

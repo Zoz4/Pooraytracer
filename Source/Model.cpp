@@ -31,22 +31,22 @@ namespace Pooraytracer {
 		{"RightWall", MaterialType::Lambertian },
 		{"Light", MaterialType::DiffuseLight },
 
-		{"Wall", MaterialType::PhoneReflectance },
-		{"quad1", MaterialType::PhoneReflectance },
+		{"Wall", MaterialType::Lambertian },
+		{"quad1", MaterialType::Empty },
 		{"Mirror", MaterialType::PerfectMirror },
-		{"StainlessRough", MaterialType::PhoneReflectance },
-		{"Towel", MaterialType::PhoneReflectance },
-		{"BlackWoodLacquer", MaterialType::PhoneReflectance },
-		{"Wood", MaterialType::PhoneReflectance },
-		{"WoodFloor", MaterialType::PhoneReflectance },
-		{"RoughGlass", MaterialType::PhoneReflectance },
-		{"Plastic", MaterialType::PhoneReflectance },
-		{"DarkPlastic", MaterialType::PhoneReflectance },
+		{"StainlessRough", MaterialType::Lambertian },
+		{"Towel", MaterialType::Lambertian },
+		{"BlackWoodLacquer", MaterialType::Lambertian },
+		{"Wood", MaterialType::Lambertian },
+		{"WoodFloor", MaterialType::Lambertian },
+		{"RoughGlass", MaterialType::Lambertian },
+		{"Plastic", MaterialType::Lambertian },
+		{"DarkPlastic", MaterialType::Lambertian },
 		{"Bin", MaterialType::PerfectMirror },
-		{"WallRight", MaterialType::PhoneReflectance },
-		{"DarkBorder", MaterialType::PhoneReflectance },
-		{"Trims", MaterialType::PhoneReflectance },
-		{"Ceramic", MaterialType::PhoneReflectance }
+		{"WallRight", MaterialType::Lambertian },
+		{"DarkBorder", MaterialType::Lambertian },
+		{"Trims", MaterialType::Lambertian },
+		{"Ceramic", MaterialType::Lambertian }
 	};
 
 	Model::Model(const std::string& modelDirectory, const std::string& modelName) :modelDirectory(modelDirectory), modelName(modelName)
@@ -291,8 +291,7 @@ namespace Pooraytracer {
 			break;
 		}
 		case MaterialType::Lambertian: {
-			vec3 albedo = vec3(materialRaw.diffuse[0], materialRaw.diffuse[1], materialRaw.diffuse[2]);
-			return make_shared<Lambertian>(albedo);
+			return CreateLambertianMaterial(materialRaw);
 			break;
 		}
 		case MaterialType::PerfectMirror: {
@@ -313,6 +312,10 @@ namespace Pooraytracer {
 		case MaterialType::DebugMaterial: {
 			color albedo = vec3(materialRaw.diffuse[0], materialRaw.diffuse[1], materialRaw.diffuse[2]);
 			return make_shared<DebugMaterial>(albedo);
+			break;
+		}
+		case MaterialType::Empty: {
+			return make_shared<EmptyMaterial>();
 			break;
 		}
 		default:
@@ -367,6 +370,21 @@ namespace Pooraytracer {
 			color Ks = vec3(materialRaw.specular[0], materialRaw.specular[1], materialRaw.specular[2]);
 			double Ns = materialRaw.shininess;
 			return make_shared<PhoneReflectance>(Kd, Ks, Ns);
+		}
+	}
+
+	std::shared_ptr<Material> Model::CreateLambertianMaterial(const tinyobj::material_t& materialRaw) const
+	{
+		if (!materialRaw.diffuse_texname.empty())
+		{
+			const std::string& texName = materialRaw.diffuse_texname;
+			LOGI("Texture name: {}", materialRaw.diffuse_texname);
+			std::shared_ptr<Texture> imageTextureInstance = imageTextureInstances.at(texName);
+			return make_shared<Lambertian>(imageTextureInstance);
+		}
+		else {
+			vec3 albedo = vec3(materialRaw.diffuse[0], materialRaw.diffuse[1], materialRaw.diffuse[2]);
+			return make_shared<Lambertian>(albedo);
 		}
 	}
 }

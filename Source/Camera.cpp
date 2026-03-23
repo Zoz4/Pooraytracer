@@ -219,31 +219,114 @@ namespace Pooraytracer {
 			return 12.92 * linearColorComponent;
 		return 1.055 * std::pow(linearColorComponent, (1. / 2.4)) - 0.055;
 	}
-
-	void Camera::WriteColorAttachment(const std::string& outputPath) const
+	
+	color Camera::ExponentialToneMapping(color linearColor) const
 	{
-		std::vector<uint8_t> rawImage(imageHeight * imageWidth * 3);
-		for (size_t j = 0; j < imageHeight; ++j) {
-			for (size_t i = 0; i < imageWidth; ++i) {
-				size_t idx = i + j * imageWidth;
+		const double exposure = 0.5;
+		color hdrColor = color(
+			1.0 - glm::exp(-exposure * linearColor)
+		);
+		return hdrColor;
+	}
+	
+	color Camera::ACESFilmToneMapping(color linearColor) const
+	{
+		color x = linearColor;
+		//double a = 2.51f;
+		//double b = 0.03f;
+		//double c = 2.43f;
+		//double d = 0.59f;
+		//double e = 0.14f;
+		//return glm::clamp((x * (a * x + b)) / (x * (c * x + d) + e),0.,1.);
 
-				color linearColor = colorAttachment[idx];
-				auto& r = linearColor.x;
-				auto& g = linearColor.y;
-				auto& b = linearColor.z;
+		static const glm::mat3x3 ACESInputMat =
+		{
+			{0.59719, 0.35458, 0.04823},
+			{0.07600, 0.90834, 0.01566},
+			{0.02840, 0.13383, 0.83777}
+		};
 
-				if (r != r) r = 0.0;
-				if (g != g) g = 0.0;
-				if (b != b) b = 0.0;
+		// ODT_SAT => XYZ => D60_2_D65 => sRGB
+		static const glm::mat3x3 ACESOutputMat =
+		{
+			{ 1.60475, -0.53108, -0.07367},
+			{-0.10208,  1.10813, -0.00605},
+			{-0.00327, -0.07276,  1.07602}
+		};
 
-				color srgbColor = LinearToSRGB(linearColor);
-				static const Interval intensity(0.0000, 0.9999);
-				rawImage[idx * 3] = (uint8_t)(intensity.Clamp(srgbColor.r) * 256);
-				rawImage[idx * 3 + 1] = (uint8_t)(intensity.Clamp(srgbColor.g) * 256);
-				rawImage[idx * 3 + 2] = (uint8_t)(intensity.Clamp(srgbColor.b) * 256);
+		static auto RRTAndODTFit = [](vec3 v)
+			{
+				vec3 a = v * (v + 0.0245786) - 0.000090537;
+				vec3 b = v * (0.983729 * v + 0.4329510) + 0.238081;
+				return a / b;
+			};
+
+
+			x = x*ACESInputMat;
+
+			// Apply RRT and ODT
+			x = RRTAndODTFit(x);
+
+			x = x*ACESOutputMat;
+
+			// Clamp to [0, 1]
+			x = glm::clamp(x, 0., 1.);
+
+			return x;
+		
+	}
+	
+	void Camera::WriteColorAttachment(const std::string& outputPath, bool bWriteHDR) const
+	{
+		if (!bWriteHDR)
+		{
+			std::vector<uint8_t> rawImage(imageHeight * imageWidth * 3);
+			for (size_t j = 0; j < imageHeight; ++j) {
+				for (size_t i = 0; i < imageWidth; ++i) {
+					size_t idx = i + j * imageWidth;
+
+					color linearColor = colorAttachment[idx];
+					auto& r = linearColor.x;
+					auto& g = linearColor.y;
+					auto& b = linearColor.z;
+
+					if (r != r) r = 0.0;
+					if (g != g) g = 0.0;
+					if (b != b) b = 0.0;
+					//color srgbColor = LinearToSRGB(linearColor);
+					//color srgbColor = LinearToSRGB(ExponentialToneMapping(linearColor));
+					color srgbColor = LinearToSRGB(1.8*ACESFilmToneMapping(linearColor));
+					static const Interval intensity(0.0000, 0.9999);
+					rawImage[idx * 3] = (uint8_t)(intensity.Clamp(srgbColor.r) * 256);
+					rawImage[idx * 3 + 1] = (uint8_t)(intensity.Clamp(srgbColor.g) * 256);
+					rawImage[idx * 3 + 2] = (uint8_t)(intensity.Clamp(srgbColor.b) * 256);
+				}
 			}
+			stbi_write_png(outputPath.c_str(), imageWidth, imageHeight, 3, rawImage.data(), imageWidth * 3);
 		}
-		stbi_write_png(outputPath.c_str(), imageWidth, imageHeight, 3, rawImage.data(), imageWidth * 3);
+		else
+		{
+			std::vector<float> rawImage(imageHeight * imageWidth * 3);
+			for (size_t j = 0; j < imageHeight; ++j) {
+				for (size_t i = 0; i < imageWidth; ++i) {
+					size_t idx = i + j * imageWidth;
+
+					color linearColor = colorAttachment[idx];
+					auto& r = linearColor.x;
+					auto& g = linearColor.y;
+					auto& b = linearColor.z;
+
+					if (r != r) r = 0.0;
+					if (g != g) g = 0.0;
+					if (b != b) b = 0.0;
+
+					rawImage[idx * 3]     = (float)r;
+					rawImage[idx * 3 + 1] = (float)g;
+					rawImage[idx * 3 + 2] = (float)b;
+				}
+			}
+			stbi_write_hdr((outputPath.substr(0, outputPath.find_last_of('.'))+".hdr").c_str(), imageWidth, imageHeight, 3, rawImage.data());
+		}
 	}
 
 	std::string Camera::GetParametersStr() const
