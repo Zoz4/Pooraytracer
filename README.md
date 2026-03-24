@@ -6,4 +6,4 @@
 
 ![cornell-box_20250327_0944_spp3000-depth100_20382.22s](./Results/cornell-box_20250327_0944_spp3000-depth100_20382.22s.png)
 
- 
+![bathroom2_20260324_0706_spp500-depth50_4421.03s](./Results/bathroom2_20260324_0706_spp500-depth50_4421.03s.png)

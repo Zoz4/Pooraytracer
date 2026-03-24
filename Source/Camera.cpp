@@ -47,7 +47,7 @@ namespace Pooraytracer {
 		int times = imageHeight / threadNums;
 		std::vector<std::thread> threads(threadNums);
 		auto castRayMultiThread = [&](uint32_t yMin, uint32_t yMax) {
-			for (uint32_t j = yMin; j < yMax && j<imageHeight; j++) {
+			for (uint32_t j = yMin; j < yMax && j < imageHeight; j++) {
 				int m = j * imageWidth;
 				for (uint32_t i = 0; i < imageWidth; i++) {
 					Ray ray = GetRay(i, j);
@@ -136,7 +136,7 @@ namespace Pooraytracer {
 
 		if (bSampleLights && !record.material->SkipLightSampling())
 		{
-			double pdfLights=0.0;
+			double pdfLights = 0.0;
 			HitRecord lightsSamplePointRecord;
 			lights.Sample(ps, lightsSamplePointRecord, pdfLights); // sample lights from shade point
 			const point3& pl = lightsSamplePointRecord.position; // light sample point
@@ -186,7 +186,7 @@ namespace Pooraytracer {
 					HitRecord scatterRayHitRecord;
 					if (world.Hit(scatteredRay, Interval(0.0001, std::numeric_limits<double>::infinity()), scatterRayHitRecord)) {
 						if (!scatterRayHitRecord.material->HasEmission()) {
-							scatter = attenuation * RayColor(scatteredRay, depth - 1, world, lights)/russianRoulette;
+							scatter = attenuation * RayColor(scatteredRay, depth - 1, world, lights) / russianRoulette;
 						}
 						else {
 							if (record.material->SkipLightSampling()) { // Perfect Specular or Phone Reflectance Ns > 1
@@ -219,7 +219,7 @@ namespace Pooraytracer {
 			return 12.92 * linearColorComponent;
 		return 1.055 * std::pow(linearColorComponent, (1. / 2.4)) - 0.055;
 	}
-	
+
 	color Camera::ExponentialToneMapping(color linearColor) const
 	{
 		const double exposure = 0.5;
@@ -228,7 +228,7 @@ namespace Pooraytracer {
 		);
 		return hdrColor;
 	}
-	
+
 	color Camera::ACESFilmToneMapping(color linearColor) const
 	{
 		color x = linearColor;
@@ -262,25 +262,50 @@ namespace Pooraytracer {
 			};
 
 
-			x = x*ACESInputMat;
+		x = x * ACESInputMat;
 
-			// Apply RRT and ODT
-			x = RRTAndODTFit(x);
+		// Apply RRT and ODT
+		x = RRTAndODTFit(x);
 
-			x = x*ACESOutputMat;
+		x = x * ACESOutputMat;
 
-			// Clamp to [0, 1]
-			x = glm::clamp(x, 0., 1.);
+		// Clamp to [0, 1]
+		x = glm::clamp(x, 0., 1.);
 
-			return x;
-		
+		return x;
+
 	}
-	
+
 	void Camera::WriteColorAttachment(const std::string& outputPath, bool bWriteHDR) const
 	{
-		if (!bWriteHDR)
+		std::vector<uint8_t> rawImage(imageHeight * imageWidth * 3);
+		for (size_t j = 0; j < imageHeight; ++j) {
+			for (size_t i = 0; i < imageWidth; ++i) {
+				size_t idx = i + j * imageWidth;
+
+				color linearColor = colorAttachment[idx];
+				auto& r = linearColor.x;
+				auto& g = linearColor.y;
+				auto& b = linearColor.z;
+
+				if (r != r) r = 0.0;
+				if (g != g) g = 0.0;
+				if (b != b) b = 0.0;
+				color srgbColor = LinearToSRGB(linearColor);
+				//color srgbColor = LinearToSRGB(ExponentialToneMapping(linearColor));
+				//color srgbColor = LinearToSRGB(1.8 * ACESFilmToneMapping(linearColor));
+				static const Interval intensity(0.0000, 0.9999);
+				rawImage[idx * 3] = (uint8_t)(intensity.Clamp(srgbColor.r) * 255);
+				rawImage[idx * 3 + 1] = (uint8_t)(intensity.Clamp(srgbColor.g) * 255);
+				rawImage[idx * 3 + 2] = (uint8_t)(intensity.Clamp(srgbColor.b) * 255);
+			}
+		}
+		stbi_write_png(outputPath.c_str(), imageWidth, imageHeight, 3, rawImage.data(), imageWidth * 3);
+
+		if (bWriteHDR)
 		{
-			std::vector<uint8_t> rawImage(imageHeight * imageWidth * 3);
+
+			std::vector<float> rawImageHDR(imageHeight * imageWidth * 3);
 			for (size_t j = 0; j < imageHeight; ++j) {
 				for (size_t i = 0; i < imageWidth; ++i) {
 					size_t idx = i + j * imageWidth;
@@ -293,42 +318,17 @@ namespace Pooraytracer {
 					if (r != r) r = 0.0;
 					if (g != g) g = 0.0;
 					if (b != b) b = 0.0;
-					//color srgbColor = LinearToSRGB(linearColor);
-					//color srgbColor = LinearToSRGB(ExponentialToneMapping(linearColor));
-					color srgbColor = LinearToSRGB(1.8*ACESFilmToneMapping(linearColor));
-					static const Interval intensity(0.0000, 0.9999);
-					rawImage[idx * 3] = (uint8_t)(intensity.Clamp(srgbColor.r) * 256);
-					rawImage[idx * 3 + 1] = (uint8_t)(intensity.Clamp(srgbColor.g) * 256);
-					rawImage[idx * 3 + 2] = (uint8_t)(intensity.Clamp(srgbColor.b) * 256);
+
+					rawImageHDR[idx * 3] = (float)r;
+					rawImageHDR[idx * 3 + 1] = (float)g;
+					rawImageHDR[idx * 3 + 2] = (float)b;
 				}
 			}
-			stbi_write_png(outputPath.c_str(), imageWidth, imageHeight, 3, rawImage.data(), imageWidth * 3);
+			stbi_write_hdr((outputPath.substr(0, outputPath.find_last_of('.')) + ".hdr").c_str(), imageWidth, imageHeight, 3, rawImageHDR.data());
+
 		}
-		else
-		{
-			std::vector<float> rawImage(imageHeight * imageWidth * 3);
-			for (size_t j = 0; j < imageHeight; ++j) {
-				for (size_t i = 0; i < imageWidth; ++i) {
-					size_t idx = i + j * imageWidth;
 
-					color linearColor = colorAttachment[idx];
-					auto& r = linearColor.x;
-					auto& g = linearColor.y;
-					auto& b = linearColor.z;
-
-					if (r != r) r = 0.0;
-					if (g != g) g = 0.0;
-					if (b != b) b = 0.0;
-
-					rawImage[idx * 3]     = (float)r;
-					rawImage[idx * 3 + 1] = (float)g;
-					rawImage[idx * 3 + 2] = (float)b;
-				}
-			}
-			stbi_write_hdr((outputPath.substr(0, outputPath.find_last_of('.'))+".hdr").c_str(), imageWidth, imageHeight, 3, rawImage.data());
-		}
 	}
-
 	std::string Camera::GetParametersStr() const
 	{
 		std::stringstream ss;
